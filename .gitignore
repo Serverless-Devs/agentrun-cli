@@ -12,7 +12,11 @@ venv/
 .idea/
 .vscode/
 *.spec
-!agentrun.spec
+# Nuitka build artifacts
+*.dist/
+*.build/
+*.bin
+*.onefile-build/
 .coverage
 coverage.json
 htmlcov/

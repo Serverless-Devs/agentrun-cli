@@ -77,7 +77,7 @@ jobs:
         include:
           # Linux builds use ubuntu-22.04 (glibc 2.35) rather than a manylinux
           # container: manylinux ships a static CPython without libpython*.so,
-          # which PyInstaller cannot embed. The glibc-2.35 floor still covers
+          # which Nuitka cannot embed. The glibc-2.35 floor still covers
           # Ubuntu 22.04+, Debian 12+, RHEL 9+, and all current modern distros.
           - target: linux-amd64
             runner: ubuntu-22.04
@@ -111,23 +111,39 @@ jobs:
         with:
           python-version: ${{ env.PYTHON_VERSION }}
 
-      - name: Install project + PyInstaller
+      - name: Install Nuitka build toolchain (Linux)
+        if: startsWith(matrix.target, 'linux-')
+        shell: bash
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq patchelf ccache
+
+      - name: Install project + Nuitka
         shell: bash
         run: |
           python -m pip install --upgrade pip
           python -m pip install -e .
-          python -m pip install pyinstaller
+          python -m pip install "nuitka>=2.4" "zstandard>=0.22"
 
       - name: Build binary
         shell: bash
         run: |
-          pyinstaller --clean --noconfirm agentrun.spec
+          bash scripts/build-binary.sh
           ls -lh dist/
 
       - name: Smoke test binary
         shell: bash
         run: |
-          ./dist/agentrun${{ matrix.ext }} --version
+          BIN="./dist/agentrun${{ matrix.ext }}"
+          "$BIN" --version
+          "$BIN" --help >/dev/null
+          "$BIN" config --help >/dev/null
+          "$BIN" model --help >/dev/null
+          "$BIN" sandbox --help >/dev/null
+          "$BIN" skill --help >/dev/null
+          "$BIN" super-agent --help >/dev/null
+          "$BIN" tool --help >/dev/null
+          echo "All 8 subcommand invocations OK on ${{ matrix.target }}"
 
       # --- Package (Unix) -----------------------------------------------
       - name: Package tar.gz (Unix)
