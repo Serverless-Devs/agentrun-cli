@@ -204,7 +204,9 @@ jobs:
           tag_name: ${{ needs.verify-version.outputs.tag }}
           name: ${{ needs.verify-version.outputs.tag }}
           draft: false
-          prerelease: ${{ contains(needs.verify-version.outputs.version, '-') }}
+          # PEP 440 pre-release markers: aN / bN / rcN / .devN. Tags must be in
+          # canonical form (no '-'), so we match on these substrings instead.
+          prerelease: ${{ contains(needs.verify-version.outputs.version, 'a') || contains(needs.verify-version.outputs.version, 'b') || contains(needs.verify-version.outputs.version, 'rc') || contains(needs.verify-version.outputs.version, 'dev') }}
           generate_release_notes: true
           files: |
             dist/agentrun-*.tar.gz
