@@ -71,34 +71,32 @@ jobs:
     name: Build ${{ matrix.target }}
     needs: verify-version
     runs-on: ${{ matrix.runner }}
-    container: ${{ matrix.container }}
     strategy:
       fail-fast: false
       matrix:
         include:
+          # Linux builds use ubuntu-22.04 (glibc 2.35) rather than a manylinux
+          # container: manylinux ships a static CPython without libpython*.so,
+          # which PyInstaller cannot embed. The glibc-2.35 floor still covers
+          # Ubuntu 22.04+, Debian 12+, RHEL 9+, and all current modern distros.
           - target: linux-amd64
-            runner: ubuntu-latest
-            container: quay.io/pypa/manylinux_2_28_x86_64
+            runner: ubuntu-22.04
             ext: ''
             archive: tar.gz
           - target: linux-arm64
-            runner: ubuntu-24.04-arm
-            container: quay.io/pypa/manylinux_2_28_aarch64
+            runner: ubuntu-22.04-arm
             ext: ''
             archive: tar.gz
           - target: darwin-amd64
             runner: macos-13
-            container: ''
             ext: ''
             archive: tar.gz
           - target: darwin-arm64
             runner: macos-latest
-            container: ''
             ext: ''
             archive: tar.gz
           - target: windows-amd64
             runner: windows-latest
-            container: ''
             ext: '.exe'
             archive: zip
 
@@ -108,25 +106,7 @@ jobs:
           ref: ${{ needs.verify-version.outputs.tag }}
           fetch-depth: 0  # setuptools-scm needs full history + tags
 
-      # Inside the manylinux container the workspace is owned by a different
-      # UID than root, so git refuses to read it ("dubious ownership") and
-      # setuptools-scm version resolution fails during pip install.
-      - name: Mark workspace as safe for git (container)
-        if: matrix.container != ''
-        shell: bash
-        run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
-
-      # manylinux images ship multiple Pythons under /opt/python; expose one.
-      - name: Configure Python (manylinux container)
-        if: matrix.container != ''
-        shell: bash
-        run: |
-          PY=/opt/python/cp311-cp311/bin
-          echo "$PY" >> "$GITHUB_PATH"
-          "$PY/python" -m pip install --upgrade pip
-
-      - name: Setup Python (host runner)
-        if: matrix.container == ''
+      - name: Setup Python
         uses: actions/setup-python@v5
         with:
           python-version: ${{ env.PYTHON_VERSION }}
