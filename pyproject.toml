@@ -1,0 +1,111 @@
+[project]
+name = "agentrun-cli"
+dynamic = ["version"]
+description = "CLI for AgentRun — manage AI agent infrastructure from the command line"
+readme = "README.md"
+license = { text = "Apache-2.0" }
+requires-python = ">=3.10"
+keywords = ["agentrun", "cli", "ai-agent", "sandbox", "llm"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Environment :: Console",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: Apache Software License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Software Development :: Libraries",
+]
+
+dependencies = [
+    "agentrun-sdk[core]>=0.0.32",
+    "pyyaml>=6.0",
+    "questionary>=2.0",
+]
+
+[project.scripts]
+agentrun = "agentrun_cli.main:cli"
+ar = "agentrun_cli.main:cli"
+
+[project.urls]
+Homepage = "https://github.com/Serverless-Devs/agentrun-cli"
+Repository = "https://github.com/Serverless-Devs/agentrun-cli"
+Issues = "https://github.com/Serverless-Devs/agentrun-cli/issues"
+
+[dependency-groups]
+dev = [
+    "pytest>=8.0.0", "pytest-cov>=6.0.0",
+    "pytest-asyncio>=1.2.0",
+    "pyinstaller>=6.0.0",
+    "ruff>=0.14.0",
+    "mypy>=1.11.0",
+    "types-PyYAML>=6.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0.0", "pytest-cov>=6.0.0",
+    "pytest-asyncio>=1.2.0",
+    "pyinstaller>=6.0.0",
+    "ruff>=0.14.0",
+    "mypy>=1.11.0",
+    "types-PyYAML>=6.0",
+]
+
+[tool.ruff]
+line-length = 88
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "W"]
+
+[tool.mypy]
+# Start permissive: only check annotated code. Tighten incrementally by
+# flipping disallow_untyped_defs / strict once annotations are added.
+python_version = "3.10"
+files = ["src/agentrun_cli"]
+ignore_missing_imports = true
+follow_imports = "silent"
+warn_redundant_casts = true
+warn_unused_ignores = true
+warn_unreachable = true
+check_untyped_defs = false
+
+[[tool.mypy.overrides]]
+module = ["agentrun_cli._version"]
+ignore_errors = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests/unit", "tests/integration"]
+addopts = "-v --tb=short"
+
+[tool.coverage.run]
+source = ["agentrun_cli"]
+branch = true
+
+[tool.coverage.report]
+show_missing = true
+fail_under = 0
+exclude_lines = [
+    "pragma: no cover",
+    "if __name__ == .__main__.",
+    "if TYPE_CHECKING:",
+]
+
+[build-system]
+requires = ["setuptools>=64", "wheel", "setuptools-scm>=8"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+include = ["agentrun_cli*"]
+
+# Version is derived from the git tag by setuptools-scm.
+# - Tagged build (e.g. checked out at v0.2.0)  → version == "0.2.0"
+# - Untagged build (local dev / no tags yet)    → fallback_version below.
+# The generated _version.py is gitignored and imported by __init__.py.
+[tool.setuptools_scm]
+version_file = "src/agentrun_cli/_version.py"
+fallback_version = "0.0.0+unknown"

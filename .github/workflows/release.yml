@@ -1,0 +1,213 @@
+name: Release
+
+# Builds standalone binaries for Linux / macOS / Windows and publishes them
+# as assets on the GitHub Release corresponding to the pushed tag.
+#
+# Trigger:
+#   - Push a git tag matching v* (e.g. v0.1.0) → builds all targets and
+#     creates/updates a Release named after the tag.
+#   - workflow_dispatch → manual run for debugging; requires a tag input
+#     that already exists on the repository.
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Existing tag to build and release (e.g. v0.1.0)'
+        required: true
+
+permissions:
+  contents: write
+
+env:
+  PYTHON_VERSION: '3.11'
+  DISABLE_BREAKING_CHANGES_WARNING: '1'
+
+jobs:
+  # ---------------------------------------------------------------------
+  # Version sanity check: setuptools-scm must resolve the tag to the
+  # same PEP 440 version we expect from the tag name (v1.2.3 → 1.2.3).
+  # ---------------------------------------------------------------------
+  verify-version:
+    name: Verify version
+    runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.resolve.outputs.tag }}
+      version: ${{ steps.resolve.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.tag || github.ref }}
+          fetch-depth: 0  # setuptools-scm needs full history + tags
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Resolve tag and version
+        id: resolve
+        shell: bash
+        run: |
+          TAG="${{ github.event.inputs.tag || github.ref_name }}"
+          VERSION="${TAG#v}"
+          python -m pip install --upgrade pip
+          python -m pip install "setuptools-scm>=8"
+          SCM_VERSION=$(python -m setuptools_scm)
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          if [ "$VERSION" != "$SCM_VERSION" ]; then
+            echo "::error::Tag version ($VERSION) does not match setuptools-scm resolution ($SCM_VERSION). Make sure the tag points at the commit you want to release."
+            exit 1
+          fi
+          echo "Building version $VERSION from tag $TAG"
+
+  # ---------------------------------------------------------------------
+  # Matrix build: 5 targets
+  # ---------------------------------------------------------------------
+  build:
+    name: Build ${{ matrix.target }}
+    needs: verify-version
+    runs-on: ${{ matrix.runner }}
+    container: ${{ matrix.container }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: linux-amd64
+            runner: ubuntu-latest
+            container: quay.io/pypa/manylinux_2_28_x86_64
+            ext: ''
+            archive: tar.gz
+          - target: linux-arm64
+            runner: ubuntu-24.04-arm
+            container: quay.io/pypa/manylinux_2_28_aarch64
+            ext: ''
+            archive: tar.gz
+          - target: darwin-amd64
+            runner: macos-13
+            container: ''
+            ext: ''
+            archive: tar.gz
+          - target: darwin-arm64
+            runner: macos-latest
+            container: ''
+            ext: ''
+            archive: tar.gz
+          - target: windows-amd64
+            runner: windows-latest
+            container: ''
+            ext: '.exe'
+            archive: zip
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.verify-version.outputs.tag }}
+          fetch-depth: 0  # setuptools-scm needs full history + tags
+
+      # manylinux images ship multiple Pythons under /opt/python; expose one.
+      - name: Configure Python (manylinux container)
+        if: matrix.container != ''
+        shell: bash
+        run: |
+          PY=/opt/python/cp311-cp311/bin
+          echo "$PY" >> "$GITHUB_PATH"
+          "$PY/python" -m pip install --upgrade pip
+
+      - name: Setup Python (host runner)
+        if: matrix.container == ''
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install project + PyInstaller
+        shell: bash
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e .
+          python -m pip install pyinstaller
+
+      - name: Build binary
+        shell: bash
+        run: |
+          pyinstaller --clean --noconfirm agentrun.spec
+          ls -lh dist/
+
+      - name: Smoke test binary
+        shell: bash
+        run: |
+          ./dist/agentrun${{ matrix.ext }} --version
+
+      # --- Package (Unix) -----------------------------------------------
+      - name: Package tar.gz (Unix)
+        if: matrix.archive == 'tar.gz'
+        shell: bash
+        run: |
+          VERSION="${{ needs.verify-version.outputs.version }}"
+          ASSET="agentrun-${VERSION}-${{ matrix.target }}.tar.gz"
+          cd dist
+          tar czf "../${ASSET}" "agentrun${{ matrix.ext }}"
+          cd ..
+          shasum -a 256 "${ASSET}" > "${ASSET}.sha256"
+          echo "ASSET=${ASSET}" >> "$GITHUB_ENV"
+
+      # --- Package (Windows) --------------------------------------------
+      - name: Package zip (Windows)
+        if: matrix.archive == 'zip'
+        shell: pwsh
+        run: |
+          $version = "${{ needs.verify-version.outputs.version }}"
+          $asset = "agentrun-$version-${{ matrix.target }}.zip"
+          Compress-Archive -Path "dist/agentrun${{ matrix.ext }}" -DestinationPath $asset -Force
+          $hash = (Get-FileHash $asset -Algorithm SHA256).Hash.ToLower()
+          "$hash  $asset" | Out-File -Encoding ascii "$asset.sha256"
+          echo "ASSET=$asset" >> $env:GITHUB_ENV
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: agentrun-${{ matrix.target }}
+          path: |
+            ${{ env.ASSET }}
+            ${{ env.ASSET }}.sha256
+          retention-days: 7
+          if-no-files-found: error
+
+  # ---------------------------------------------------------------------
+  # Collect all artifacts and publish the Release
+  # ---------------------------------------------------------------------
+  release:
+    name: Publish Release
+    needs: [verify-version, build]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+
+      - name: List artifacts
+        run: ls -lh dist/
+
+      - name: Create combined checksums file
+        working-directory: dist
+        run: |
+          cat *.sha256 > SHA256SUMS
+          echo "---"
+          cat SHA256SUMS
+
+      - name: Publish to GitHub Releases
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ needs.verify-version.outputs.tag }}
+          name: ${{ needs.verify-version.outputs.tag }}
+          draft: false
+          prerelease: ${{ contains(needs.verify-version.outputs.version, '-') }}
+          generate_release_notes: true
+          files: |
+            dist/agentrun-*.tar.gz
+            dist/agentrun-*.zip
+            dist/agentrun-*.sha256
+            dist/SHA256SUMS

@@ -1,0 +1,125 @@
+name: CI
+
+# Triggers on every push to any branch and on every pull request, so the
+# coverage + type-check + lint gate runs before code gets merged anywhere.
+on:
+  push:
+    branches: ['**']
+  pull_request:
+  workflow_dispatch:
+
+# Cancel an in-progress run if a new commit is pushed to the same ref.
+# Saves runner minutes and keeps the latest commit's status authoritative.
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  DISABLE_BREAKING_CHANGES_WARNING: '1'
+  PIP_DISABLE_PIP_VERSION_CHECK: '1'
+
+jobs:
+  # ---------------------------------------------------------------------
+  # Static type check with mypy.
+  # ---------------------------------------------------------------------
+  typecheck:
+    name: Type check (mypy)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # setuptools-scm needs history for version
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install project + mypy
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e ".[dev]"
+
+      - name: mypy
+        run: mypy src/agentrun_cli
+
+  # ---------------------------------------------------------------------
+  # Unit + integration tests with coverage gate.
+  # Matrix runs across all supported Python versions on Linux; macOS and
+  # Windows are covered by the smoke-test job below (the test suite is
+  # platform-agnostic, but we still want at least one cross-OS signal).
+  # ---------------------------------------------------------------------
+  test:
+    name: Test (Python ${{ matrix.python-version }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ['3.10', '3.11', '3.12', '3.13']
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # setuptools-scm
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: 'pip'
+
+      - name: Install project + dev deps
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e ".[dev]"
+
+      - name: Run tests with coverage (>=95%)
+        run: |
+          pytest tests/unit tests/integration \
+            --cov=agentrun_cli \
+            --cov-report=term-missing \
+            --cov-report=xml \
+            --cov-branch \
+            --cov-fail-under=95
+
+      - name: Upload coverage XML
+        if: matrix.python-version == '3.11'
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-xml
+          path: coverage.xml
+          retention-days: 14
+          if-no-files-found: warn
+
+  # ---------------------------------------------------------------------
+  # Cross-platform smoke test: install the package and exercise the CLI
+  # entry points. Catches platform-specific import / packaging issues
+  # without running the full matrix on every OS.
+  # ---------------------------------------------------------------------
+  smoke:
+    name: Smoke (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install project
+        shell: bash
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e .
+
+      - name: CLI smoke test
+        shell: bash
+        run: |
+          agentrun --version
+          agentrun --help
+          ar --version
