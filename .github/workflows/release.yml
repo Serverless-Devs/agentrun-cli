@@ -108,6 +108,14 @@ jobs:
           ref: ${{ needs.verify-version.outputs.tag }}
           fetch-depth: 0  # setuptools-scm needs full history + tags
 
+      # Inside the manylinux container the workspace is owned by a different
+      # UID than root, so git refuses to read it ("dubious ownership") and
+      # setuptools-scm version resolution fails during pip install.
+      - name: Mark workspace as safe for git (container)
+        if: matrix.container != ''
+        shell: bash
+        run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
+
       # manylinux images ship multiple Pythons under /opt/python; expose one.
       - name: Configure Python (manylinux container)
         if: matrix.container != ''
