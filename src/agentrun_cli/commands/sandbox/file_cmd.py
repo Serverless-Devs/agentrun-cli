@@ -60,7 +60,10 @@ def file_upload(ctx, sandbox_id, local_path, remote_path):
 
     cfg = _build_cfg(ctx)
     sb = Sandbox.connect(sandbox_id, config=cfg)
-    result = sb.file_system.upload(local_path=local_path, remote_path=remote_path)
+    result = sb.file_system.upload(
+        local_file_path=local_path,
+        target_file_path=remote_path,
+    )
     format_output(ctx, result)
 
 

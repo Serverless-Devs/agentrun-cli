@@ -134,6 +134,23 @@ class TestTemplateCommands:
             data = json.loads(result.output)
             assert len(data) == 2
 
+    def test_template_list_with_type_filter(self):
+        """--type should be propagated into PageableInput."""
+        mock_mod = _mock_sandbox_modules()
+        mock_mod.Sandbox.list_templates.return_value = [_make_template_obj(template_type="Browser")]
+        with _patch_sdk(mock_mod):
+            runner = CliRunner()
+            result = runner.invoke(cli, [
+                "sandbox", "template", "list",
+                "--type", "Browser",
+                "--page-size", "5",
+            ])
+            assert result.exit_code == 0, result.output
+
+        call_kwargs = mock_mod.PageableInput.call_args.kwargs
+        assert call_kwargs["template_type"] == "Browser"
+        assert call_kwargs["page_size"] == 5
+
     def test_template_update(self):
         mock_mod = _mock_sandbox_modules()
         existing = _make_template_obj()
@@ -266,6 +283,44 @@ class TestExecCommands:
             data = json.loads(result.output)
             assert data["output"] == "hello\n"
 
+        call_kwargs = sb.context.execute.call_args.kwargs
+        assert call_kwargs["language"] == "python"
+        assert call_kwargs["context_id"] is None
+
+    def test_exec_with_context_id_drops_language(self):
+        """--context-id alone should send language=None (server forbids both)."""
+        mock_mod = _mock_sandbox_modules()
+        sb = _make_sandbox_obj()
+        sb.context.execute.return_value = {"output": "ok\n"}
+        mock_mod.Sandbox.connect.return_value = sb
+        with _patch_sdk(mock_mod):
+            runner = CliRunner()
+            result = runner.invoke(cli, [
+                "sandbox", "exec", "sb-xxx",
+                "--code", "print('x')",
+                "--context-id", "ctx-1",
+            ])
+            assert result.exit_code == 0, result.output
+
+        call_kwargs = sb.context.execute.call_args.kwargs
+        assert call_kwargs["language"] is None
+        assert call_kwargs["context_id"] == "ctx-1"
+
+    def test_exec_context_id_and_language_mutually_exclusive(self):
+        mock_mod = _mock_sandbox_modules()
+        sb = _make_sandbox_obj()
+        mock_mod.Sandbox.connect.return_value = sb
+        with _patch_sdk(mock_mod):
+            runner = CliRunner()
+            result = runner.invoke(cli, [
+                "sandbox", "exec", "sb-xxx",
+                "--code", "print('x')",
+                "--context-id", "ctx-1",
+                "--language", "python",
+            ])
+            assert result.exit_code != 0
+            assert "mutually exclusive" in result.output.lower()
+
     def test_cmd(self):
         mock_mod = _mock_sandbox_modules()
         sb = _make_sandbox_obj()
@@ -286,16 +341,24 @@ class TestExecCommands:
 class TestContextCommands:
 
     def test_context_create(self):
+        """SDK returns a ContextOperations-like object; CLI must flatten it."""
         mock_mod = _mock_sandbox_modules()
         sb = _make_sandbox_obj()
-        sb.context.create.return_value = {"id": "ctx-xxx", "language": "python"}
+        ops = SimpleNamespace(
+            context_id="ctx-xxx",
+            _language="python",
+            _cwd="/workspace",
+        )
+        sb.context.create.return_value = ops
         mock_mod.Sandbox.connect.return_value = sb
         with _patch_sdk(mock_mod):
             runner = CliRunner()
-            result = runner.invoke(cli, ["sandbox", "context", "create", "sb-xxx"])
+            result = runner.invoke(cli, ["sandbox", "context", "create", "sb-xxx", "--cwd", "/workspace"])
             assert result.exit_code == 0, result.output
             data = json.loads(result.output)
             assert data["id"] == "ctx-xxx"
+            assert data["language"] == "python"
+            assert data["cwd"] == "/workspace"
 
     def test_context_list(self):
         mock_mod = _mock_sandbox_modules()
@@ -308,14 +371,23 @@ class TestContextCommands:
             assert result.exit_code == 0, result.output
 
     def test_context_get(self):
+        """SDK returns a ContextOperations-like object; CLI must flatten it."""
         mock_mod = _mock_sandbox_modules()
         sb = _make_sandbox_obj()
-        sb.context.get.return_value = {"id": "ctx-xxx", "language": "python"}
+        ops = SimpleNamespace(
+            context_id="ctx-xxx",
+            _language="python",
+            _cwd="/home/user",
+        )
+        sb.context.get.return_value = ops
         mock_mod.Sandbox.connect.return_value = sb
         with _patch_sdk(mock_mod):
             runner = CliRunner()
             result = runner.invoke(cli, ["sandbox", "ctx", "get", "sb-xxx", "ctx-xxx"])
             assert result.exit_code == 0, result.output
+            data = json.loads(result.output)
+            assert data["id"] == "ctx-xxx"
+            assert data["language"] == "python"
 
     def test_context_delete(self):
         mock_mod = _mock_sandbox_modules()
@@ -355,6 +427,7 @@ class TestFileCommands:
             assert result.exit_code == 0, result.output
 
     def test_file_upload(self, tmp_path):
+        """CLI must call SDK upload with local_file_path / target_file_path kwargs."""
         mock_mod, sb = self._setup()
         sb.file_system.upload.return_value = {"success": True}
         local_file = tmp_path / "data.csv"
@@ -363,6 +436,12 @@ class TestFileCommands:
             runner = CliRunner()
             result = runner.invoke(cli, ["sandbox", "f", "upload", "sb-xxx", str(local_file), "/data.csv"])
             assert result.exit_code == 0, result.output
+
+        call_kwargs = sb.file_system.upload.call_args.kwargs
+        assert call_kwargs["local_file_path"] == str(local_file)
+        assert call_kwargs["target_file_path"] == "/data.csv"
+        assert "local_path" not in call_kwargs
+        assert "remote_path" not in call_kwargs
 
     def test_file_download(self):
         mock_mod, sb = self._setup()
@@ -446,6 +525,26 @@ class TestProcessCommands:
             assert result.exit_code == 0, result.output
             data = json.loads(result.output)
             assert data["killed"] is True
+
+    def test_process_kill_force_shell(self):
+        """--force-shell routes through process.cmd('kill -9 <pid>')."""
+        mock_mod = _mock_sandbox_modules()
+        sb = _make_sandbox_obj()
+        sb.process.cmd.return_value = {"exit_code": 0, "stdout": "", "stderr": ""}
+        mock_mod.Sandbox.connect.return_value = sb
+        with _patch_sdk(mock_mod):
+            runner = CliRunner()
+            result = runner.invoke(cli, ["sandbox", "ps", "kill", "sb-xxx", "128", "--force-shell"])
+            assert result.exit_code == 0, result.output
+            data = json.loads(result.output)
+            assert data["pid"] == "128"
+            assert data["killed_via"] == "shell"
+
+        call_kwargs = sb.process.cmd.call_args.kwargs
+        assert call_kwargs["command"] == "kill -9 128"
+        assert call_kwargs["cwd"] == "/"
+        # Regular kill should not have been called.
+        sb.process.kill.assert_not_called()
 
 
 class TestBrowserCommands:

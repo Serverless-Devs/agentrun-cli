@@ -169,7 +169,7 @@ ar sandbox exec <SANDBOX_ID> (--code <src> | --file <path>) [options]
 | `SANDBOX_ID` | 位置参数 | 是 |  | 目标沙箱 id。 |
 | `--code` | string | 二选一 | | 内联代码。 |
 | `--file` | path | 二选一 | | 代码文件路径。 |
-| `--language` | string | 否 | `python` | `python` 或 `javascript`。 |
+| `--language` | string | 否 | 不带 `--context-id` 时为 `python`；与 `--context-id` 互斥 | `python` 或 `javascript`。与 `--context-id` 同时传会报错。 |
 | `--context-id` | string | 否 |  | 有状态上下文 id（见 [context](#context-子命令组)）。 |
 | `--timeout` | int | 否 | `30` | 执行超时（秒）。 |
 
@@ -367,11 +367,16 @@ ar sandbox process get sb-001 1234
 ### process kill
 
 ```
-ar sandbox process kill <SANDBOX_ID> <PID>
+ar sandbox process kill <SANDBOX_ID> <PID> [--force-shell]
 ```
+
+| Flag | 默认 | 说明 |
+|------|------|------|
+| `--force-shell` | false | Process API 找不到该 PID 时，回退为在沙箱内执行 `kill -9 <PID>`。适合终止 `process list` 显示但未由 Process API 登记的普通 PID。 |
 
 ```bash
 ar sandbox process kill sb-001 1234
+ar sandbox process kill sb-001 1234 --force-shell
 ```
 
 ---
