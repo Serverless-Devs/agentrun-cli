@@ -20,7 +20,7 @@ make test                 # Run all tests
 .venv/bin/pytest tests/test_cli_basic.py::TestConfigCommands::test_set_and_get -v  # Single test
 
 # Build standalone binary
-make build                # PyInstaller binary → dist/ar
+make build                # Nuitka --onefile binary → dist/agentrun (warm-start cache: ~/.agentrun/cache/)
 make build-all            # macOS + Linux (via Docker)
 ```
 

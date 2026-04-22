@@ -5,9 +5,7 @@ VENV     := .venv
 BIN      := $(VENV)/bin
 PIP      := $(BIN)/pip
 PIP_MIRROR := -i https://mirrors.aliyun.com/pypi/simple/
-PYINST   := $(BIN)/pyinstaller
 APP_NAME := agentrun
-SPEC     := agentrun.spec
 VERSION  := $(shell $(PYTHON) -c "from src.agentrun_cli import __version__; print(__version__)" 2>/dev/null || echo "0.1.0")
 
 help: ## Show this help message
@@ -21,7 +19,6 @@ install: ## Install the package in editable mode
 dev: ## Install with dev dependencies
 	$(PYTHON) -m venv $(VENV)
 	$(PIP) install $(PIP_MIRROR) -e ".[dev]" || $(PIP) install $(PIP_MIRROR) -e .
-	$(PIP) install $(PIP_MIRROR) pyinstaller
 
 lint: ## Run ruff linter
 	$(BIN)/ruff check src/ tests/
@@ -45,9 +42,8 @@ clean: ## Remove build artifacts
 	rm -rf build/ dist/ *.spec __pycache__
 	find . -type d -name __pycache__ -exec rm -rf {} + 2>/dev/null || true
 
-build: ## Build binary for the current platform (uses agentrun.spec)
-	DISABLE_BREAKING_CHANGES_WARNING=1 \
-	$(PYINST) --clean --noconfirm $(SPEC)
+build: ## Build single-file binary for the current platform (uses Nuitka)
+	bash scripts/build-binary.sh
 	@echo ""
 	@echo "Binary built: dist/$(APP_NAME)"
 	@ls -lh dist/$(APP_NAME)
@@ -55,8 +51,9 @@ build: ## Build binary for the current platform (uses agentrun.spec)
 build-macos: build ## Alias for build (on macOS, just run 'make build')
 	@echo "macOS binary ready at dist/$(APP_NAME)"
 
-# Cross-compiling Python to Linux is not supported by PyInstaller.
-# Use this target inside a Linux environment (Docker / CI).
+# Nuitka compiles Python to native C, so cross-compiling is not supported.
+# Use this target inside a Linux environment (Docker / CI) to produce a
+# Linux binary when you're on a non-Linux host.
 build-linux: build ## Build Linux binary (run inside Linux or Docker)
 	@echo "Linux binary ready at dist/$(APP_NAME)"
 
@@ -69,10 +66,9 @@ build-all: ## Build for all platforms (macOS local + Linux via Docker)
 	tar cf - --exclude=.venv --exclude=.git --exclude=build --exclude=dist --exclude=__pycache__ --exclude='*.pyc' . | \
 	docker run --rm -i -v $(PWD)/dist:/out python:3.10-slim sh -c \
 		"mkdir /build && cd /build && tar xf - && \
-		 apt-get update -qq && apt-get install -y -qq binutils >/dev/null 2>&1 && \
-		 pip install $(PIP_MIRROR) -e . && pip install $(PIP_MIRROR) pyinstaller && \
-		 DISABLE_BREAKING_CHANGES_WARNING=1 \
-		 pyinstaller --clean --noconfirm $(SPEC) && \
+		 apt-get update -qq && apt-get install -y -qq binutils patchelf ccache gcc >/dev/null 2>&1 && \
+		 pip install $(PIP_MIRROR) -e . && pip install $(PIP_MIRROR) nuitka zstandard && \
+		 bash scripts/build-binary.sh && \
 		 cp dist/$(APP_NAME) /out/$(APP_NAME)"
 	@mkdir -p dist/linux && cp dist/$(APP_NAME) dist/linux/$(APP_NAME)
 	@echo ""

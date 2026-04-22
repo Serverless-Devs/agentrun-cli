@@ -18,7 +18,7 @@ agents that you configure declaratively without writing or deploying any runtime
 - **Multiple output formats** — `json` (default), `table`, `yaml`, and `quiet` for shell piping.
 - **Agent-friendly** — JSON-by-default output, deterministic exit codes, no interactive prompts when stdin isn't a TTY.
 - **Rich sandbox primitives** — code execution, file system, process management, and CDP/VNC-backed browser automation.
-- **Single-file distribution** — PyInstaller produces standalone `ar` / `agentrun` binaries for Linux, macOS and Windows (x86_64 + arm64).
+- **Single-file distribution** — Nuitka `--onefile` produces standalone `ar` / `agentrun` binaries for Linux, macOS and Windows (x86_64 + arm64) with warm-start caching under `~/.agentrun/cache/`.
 
 ## Installation
 

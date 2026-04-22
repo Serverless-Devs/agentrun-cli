@@ -69,6 +69,14 @@ make build        # local binary → dist/agentrun
 After installation, both `ar` and `agentrun` are available as entry points and behave
 identically. `ar` is shorter; the examples in this manual use it.
 
+### Binary startup cache
+
+The prebuilt binary is a Nuitka `--onefile` executable. On first launch it extracts its payload into `~/.agentrun/cache/agentrun-<version>/` (about 20 MB); subsequent launches reuse the cache, bringing warm start-up below 300 ms.
+
+- **Safe to delete.** Remove `~/.agentrun/cache/` at any time; the next invocation re-extracts.
+- **Upgrades.** A new binary version writes to a new subdirectory; old ones stay until you clean them up.
+- **Read-only `$HOME`.** If `~/.agentrun/cache/` is not writable, the bootstrap falls back to `$TMPDIR` with full re-extraction on every run (~2 s). Either grant write access or run from a shell where `$HOME` points somewhere writable.
+
 ## Authentication
 
 The CLI resolves credentials from three sources, in this order:

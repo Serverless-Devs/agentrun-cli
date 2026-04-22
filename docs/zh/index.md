@@ -68,6 +68,14 @@ make build        # 本地打独立二进制 → dist/agentrun
 安装完成后 `ar` 和 `agentrun` 都是入口点，行为完全一致。`ar` 更短，文档里的示例
 默认用 `ar`。
 
+### 二进制启动缓存
+
+预编译二进制是一个 Nuitka `--onefile` 可执行文件。首次运行会把内置 payload 解压到 `~/.agentrun/cache/agentrun-<version>/`（约 20 MB），之后每次启动复用缓存，热启动耗时低于 300 ms。
+
+- **可以随时删除。**`~/.agentrun/cache/` 删掉后下一次运行自动重建。
+- **升级行为。**新版本二进制会写入新的子目录，老目录保留直到手动清理。
+- **`$HOME` 只读的情况。**若 `~/.agentrun/cache/` 不可写，bootstrap 会回落到 `$TMPDIR` 且每次都完整解压（~2 秒）。请确保目录可写，或从 `$HOME` 指向可写位置的 shell 启动。
+
 ## 认证
 
 CLI 按以下顺序解析凭证（上面优先）：

@@ -38,7 +38,8 @@ Issues = "https://github.com/Serverless-Devs/agentrun-cli/issues"
 dev = [
     "pytest>=8.0.0", "pytest-cov>=6.0.0",
     "pytest-asyncio>=1.2.0",
-    "pyinstaller>=6.0.0",
+    "nuitka>=2.4",
+    "zstandard>=0.22",
     "ruff>=0.14.0",
     "mypy>=1.11.0",
     "types-PyYAML>=6.0",
@@ -48,7 +49,8 @@ dev = [
 dev = [
     "pytest>=8.0.0", "pytest-cov>=6.0.0",
     "pytest-asyncio>=1.2.0",
-    "pyinstaller>=6.0.0",
+    "nuitka>=2.4",
+    "zstandard>=0.22",
     "ruff>=0.14.0",
     "mypy>=1.11.0",
     "types-PyYAML>=6.0",
