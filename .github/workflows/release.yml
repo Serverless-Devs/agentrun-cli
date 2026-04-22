@@ -174,6 +174,7 @@ jobs:
       - uses: actions/download-artifact@v4
         with:
           path: dist
+          pattern: agentrun-*
           merge-multiple: true
 
       - name: List artifacts
@@ -201,3 +202,91 @@ jobs:
             dist/agentrun-*.zip
             dist/agentrun-*.sha256
             dist/SHA256SUMS
+
+  # ---------------------------------------------------------------------
+  # Build sdist + wheel for PyPI. Runs in parallel with the binary build
+  # matrix; decoupled so a PyPI outage does not block the GitHub Release
+  # (and vice versa).
+  # ---------------------------------------------------------------------
+  build-dist:
+    name: Build sdist + wheel
+    needs: verify-version
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.verify-version.outputs.tag }}
+          fetch-depth: 0  # setuptools-scm needs full history + tags
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Build sdist + wheel
+        run: |
+          python -m pip install --upgrade pip build
+          python -m build --sdist --wheel --outdir dist-pypi
+          ls -lh dist-pypi/
+
+      - name: Verify built artifacts carry the tag version
+        run: |
+          VERSION="${{ needs.verify-version.outputs.version }}"
+          # Filenames follow PEP 440 / wheel spec: agentrun_cli-<version>-py3-none-any.whl
+          # and agentrun_cli-<version>.tar.gz. Bail out if the version string is absent.
+          if ! ls dist-pypi/ | grep -q "agentrun_cli-${VERSION}"; then
+            echo "::error::Built artifacts in dist-pypi/ do not contain version ${VERSION}:"
+            ls dist-pypi/
+            exit 1
+          fi
+
+      - name: Check metadata with twine
+        run: |
+          python -m pip install twine
+          python -m twine check dist-pypi/*
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: python-dist
+          path: dist-pypi/*
+          retention-days: 7
+          if-no-files-found: error
+
+  # ---------------------------------------------------------------------
+  # Publish sdist + wheel to PyPI.
+  #
+  # Auth: uses the PYPI_API_TOKEN repository secret. The secret must be a
+  # PyPI project-scoped token (account → Add API token → scope:
+  # "agentrun-cli"). Add it at Settings → Secrets and variables → Actions.
+  #
+  # Hardening (recommended once the first release lands):
+  #   - Configure the `pypi` environment with required reviewers, so every
+  #     publish requires a manual approval.
+  #   - Migrate to PyPI trusted publishing (OIDC): drop the token, add
+  #     `id-token: write` to permissions, replace the `password:` input
+  #     with no input at all. See: https://docs.pypi.org/trusted-publishers/
+  # ---------------------------------------------------------------------
+  publish-pypi:
+    name: Publish to PyPI
+    needs: [verify-version, build-dist]
+    runs-on: ubuntu-latest
+    environment:
+      name: pypi
+      url: https://pypi.org/p/agentrun-cli
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: python-dist
+          path: dist-pypi
+
+      - name: List artifacts to upload
+        run: ls -lh dist-pypi/
+
+      - name: Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          packages-dir: dist-pypi
+          password: ${{ secrets.PYPI_API_TOKEN }}
+          # Fail loudly if the version already exists on PyPI; re-uploading
+          # is prevented by PyPI anyway, and silent skips mask tag reuse.
+          skip-existing: false
+          verify-metadata: true
