@@ -118,6 +118,36 @@ jobs:
           sudo apt-get update -qq
           sudo apt-get install -y -qq patchelf ccache
 
+      - name: Install ccache (macOS)
+        if: startsWith(matrix.target, 'darwin-')
+        shell: bash
+        run: brew install ccache
+
+      # Persist ccache across runs. Key hashes pyproject.toml + build-binary.sh
+      # so a Nuitka pin bump or a build-script flag change buckets the cache
+      # into a fresh partition. ccache itself is content-addressed, so stale
+      # .o reuse is not a concern: if the generated C changes, it misses.
+      # Skipped on Windows because Nuitka uses MSVC there and ccache does not
+      # integrate with cl.exe.
+      - name: Restore ccache
+        if: ${{ !startsWith(matrix.target, 'windows-') }}
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/ccache
+            ~/Library/Caches/ccache
+          key: ccache-${{ matrix.target }}-py${{ env.PYTHON_VERSION }}-${{ hashFiles('pyproject.toml', 'scripts/build-binary.sh') }}
+          restore-keys: |
+            ccache-${{ matrix.target }}-py${{ env.PYTHON_VERSION }}-
+            ccache-${{ matrix.target }}-
+
+      - name: Configure ccache
+        if: ${{ !startsWith(matrix.target, 'windows-') }}
+        shell: bash
+        run: |
+          ccache --max-size=2G
+          ccache --zero-stats
+
       - name: Install project + Nuitka
         shell: bash
         run: |
@@ -130,6 +160,11 @@ jobs:
         run: |
           bash scripts/build-binary.sh
           ls -lh dist/
+
+      - name: Print ccache stats
+        if: ${{ !startsWith(matrix.target, 'windows-') }}
+        shell: bash
+        run: ccache --show-stats
 
       - name: Smoke test binary
         shell: bash

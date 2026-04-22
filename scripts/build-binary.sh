@@ -94,7 +94,6 @@ mkdir -p dist
 echo "=== Building agentrun (version: $VERSION) with Nuitka --onefile ==="
 python3 -m nuitka \
   --onefile \
-  --standalone \
   --assume-yes-for-downloads \
   --output-filename=agentrun \
   --output-dir=dist \
@@ -104,6 +103,7 @@ python3 -m nuitka \
   --product-name=agentrun \
   --product-version="$PRODUCT_VERSION" \
   --python-flag=-O \
+  --lto=no \
   --nofollow-import-to="$EXCLUDES" \
   --remove-output \
   src/agentrun_cli/main.py
