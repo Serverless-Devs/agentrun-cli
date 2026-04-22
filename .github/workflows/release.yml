@@ -95,10 +95,13 @@ jobs:
             runner: macos-latest
             ext: ''
             archive: tar.gz
-          - target: windows-amd64
-            runner: windows-latest
-            ext: '.exe'
-            archive: zip
+          # Windows build temporarily disabled: MSVC path can't use ccache,
+          # so every run is a cold compile and takes >30 min on the default
+          # GitHub runner. Re-enable after switching to sccache or MinGW-w64.
+          # - target: windows-amd64
+          #   runner: windows-latest
+          #   ext: '.exe'
+          #   archive: zip
 
     steps:
       - uses: actions/checkout@v4
