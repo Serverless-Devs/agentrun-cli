@@ -171,7 +171,7 @@ ar sandbox exec <SANDBOX_ID> (--code <src> | --file <path>) [options]
 | `SANDBOX_ID` | positional | yes |  | Target sandbox id. |
 | `--code` | string | one of | | Inline code to run. |
 | `--file` | path | one of | | Path to a code file. |
-| `--language` | string | no | `python` | `python` or `javascript`. |
+| `--language` | string | no | `python` when `--context-id` is not set; mutually exclusive with `--context-id` | `python` or `javascript`. Passing both `--context-id` and `--language` is an error. |
 | `--context-id` | string | no |  | Stateful context id (see [context](#context-sub-group)). |
 | `--timeout` | int | no | `30` | Execution timeout (seconds). |
 
@@ -369,11 +369,16 @@ ar sandbox process get sb-001 1234
 ### process kill
 
 ```
-ar sandbox process kill <SANDBOX_ID> <PID>
+ar sandbox process kill <SANDBOX_ID> <PID> [--force-shell]
 ```
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--force-shell` | false | If the Process API does not know this PID, fall back to `kill -9 <PID>` via the shell. Useful for ending PIDs that appear in `process list` but were not started through the Process API. |
 
 ```bash
 ar sandbox process kill sb-001 1234
+ar sandbox process kill sb-001 1234 --force-shell
 ```
 
 ---

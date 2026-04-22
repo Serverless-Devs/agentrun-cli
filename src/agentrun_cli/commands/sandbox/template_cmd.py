@@ -123,10 +123,13 @@ def template_get(ctx, template_name):
 @handle_errors
 def template_list(ctx, page, page_size, tpl_type):
     """List sandbox templates."""
-    from agentrun.sandbox import PageableInput, Sandbox
+    from agentrun.sandbox import PageableInput, Sandbox, TemplateType
 
     cfg = _build_cfg(ctx)
-    inp = PageableInput(page_number=page, page_size=page_size)
+    kwargs = {"page_number": page, "page_size": page_size}
+    if tpl_type is not None:
+        kwargs["template_type"] = TemplateType(tpl_type)
+    inp = PageableInput(**kwargs)
     templates = Sandbox.list_templates(inp, config=cfg)
     rows = [t.model_dump(by_alias=False) for t in templates]
     format_output(ctx, rows)

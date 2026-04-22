@@ -8,6 +8,16 @@ from agentrun_cli._utils.output import format_output
 from ._helpers import _build_cfg
 
 
+def _serialize_context(ops):
+    """Flatten the SDK's ContextOperations chain object into a dict."""
+    cid = getattr(ops, "context_id", None) or getattr(ops, "_context_id", None)
+    return {
+        "id": cid,
+        "language": getattr(ops, "_language", None),
+        "cwd": getattr(ops, "_cwd", None),
+    }
+
+
 @click.group("context", help="Manage execution contexts.")
 def context_group():
     pass
@@ -26,7 +36,7 @@ def context_create(ctx, sandbox_id, language, cwd):
     cfg = _build_cfg(ctx)
     sb = Sandbox.connect(sandbox_id, config=cfg)
     result = sb.context.create(language=language, cwd=cwd)
-    format_output(ctx, result)
+    format_output(ctx, _serialize_context(result), quiet_field="id")
 
 
 @context_group.command("list")
@@ -55,7 +65,7 @@ def context_get(ctx, sandbox_id, context_id):
     cfg = _build_cfg(ctx)
     sb = Sandbox.connect(sandbox_id, config=cfg)
     result = sb.context.get(context_id=context_id)
-    format_output(ctx, result)
+    format_output(ctx, _serialize_context(result), quiet_field="id")
 
 
 @context_group.command("delete")
