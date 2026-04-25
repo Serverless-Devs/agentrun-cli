@@ -1,0 +1,15 @@
+apiVersion: agentrun/v1
+kind: SuperAgent
+metadata:
+  name: superagent-jingsu-cli-yaml
+  description: "我的超级Agent"
+spec:
+  prompt: "你是我的超级Agent助手，可以帮我完成各种任务"
+  tools:
+    - mcp-time-sa
+  skills:
+    - skill-wechat-article-search
+  sandboxes: []
+  workspaces: []
+  subAgents:
+    - agent-quick-vdyo9

@@ -7,10 +7,6 @@ import click
 
 from agentrun_cli._utils.config import build_sdk_config
 from agentrun_cli._utils.error import handle_errors
-from agentrun_cli._utils.super_agent_picker import (
-    PickerInputError,
-    resolve_model,
-)
 from agentrun_cli._utils.super_agent_render import pick_render_mode
 from agentrun_cli._utils.super_agent_repl import ReplConfig, run_repl
 from agentrun_cli.commands.super_agent._helpers import ctx_cfg
@@ -39,9 +35,9 @@ def _auto_name() -> str:
 @click.option("--prompt", "-p", default="You are a helpful assistant.",
               help="System prompt.")
 @click.option("--model-service", default=None,
-              help="ModelService name (TTY prompts interactively if omitted).")
+              help="ModelService name (optional; server picks a default if omitted).")
 @click.option("--model", default=None,
-              help="Model name (TTY prompts interactively if omitted).")
+              help="Model name (optional; server picks a default if omitted).")
 @click.option("--tool", "tools", multiple=True)
 @click.option("--skill", "skills", multiple=True)
 @click.option("--sandbox", "sandboxes", multiple=True)
@@ -51,7 +47,7 @@ def _auto_name() -> str:
 @click.option("--raw", is_flag=True, default=False)
 @click.option("--text-only", is_flag=True, default=False)
 @click.option("--no-input", is_flag=True, default=False,
-              help="Skip interactive prompts; required args must be given.")
+              help="Deprecated: no-op. Kept for backward script compatibility.")
 @click.pass_context
 @handle_errors
 def run_cmd(ctx, name, prompt, model_service, model,
@@ -61,17 +57,6 @@ def run_cmd(ctx, name, prompt, model_service, model,
     profile, region = ctx_cfg(ctx)
     cfg = build_sdk_config(profile_name=profile, region=region)
 
-    is_tty = (
-        sys.stdin.isatty() and sys.stdout.isatty() and not no_input
-    )
-    try:
-        resolved_svc, resolved_model = resolve_model(
-            cli_service=model_service, cli_model=model,
-            is_tty=is_tty, cfg=cfg,
-        )
-    except PickerInputError as e:
-        raise click.UsageError(str(e))
-
     resolved_name = name or _auto_name()
 
     client = _get_client_cls()(config=cfg)
@@ -80,8 +65,8 @@ def run_cmd(ctx, name, prompt, model_service, model,
     agent = client.create(
         name=resolved_name,
         prompt=prompt,
-        model_service_name=resolved_svc,
-        model_name=resolved_model,
+        model_service_name=model_service,
+        model_name=model,
         tools=list(tools),
         skills=list(skills),
         sandboxes=list(sandboxes),

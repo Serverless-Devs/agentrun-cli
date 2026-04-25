@@ -87,9 +87,6 @@ ar config set region            cn-hangzhou
 
 ```bash
 $ ar super-agent run --prompt "你是一个 Python 专家"
-Loading model services...
-? Select model service: svc-tongyi
-? Select model:         qwen-max
 Creating super agent: super-agent-tmp-20260420213045 ...
 Ready. Type your message (/help for commands).
 
@@ -127,9 +124,6 @@ metadata:
   description: "我的助手"
 spec:
   prompt: "你是我的得力助手"
-  model:
-    service: svc-tongyi
-    name: qwen-max
   tools:
     - mcp-time-sa
   skills: []
