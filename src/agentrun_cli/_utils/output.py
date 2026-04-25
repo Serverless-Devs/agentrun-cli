@@ -92,9 +92,13 @@ def format_output(ctx: click.Context, data: Any, quiet_field: Optional[str] = No
         echo_json(data)
 
 
-def echo_error(error_type: str, message: str) -> None:
-    """Write a structured JSON error to stderr."""
-    click.echo(
-        json.dumps({"error": error_type, "message": message}, ensure_ascii=False),
-        err=True,
-    )
+def echo_error(error_type: str, message: str, hint: Optional[str] = None) -> None:
+    """Write a structured JSON error to stderr.
+
+    When *hint* is provided it is included as a ``hint`` field in the JSON
+    payload — used to surface Prerequisites links on permission failures.
+    """
+    payload: dict = {"error": error_type, "message": message}
+    if hint:
+        payload["hint"] = hint
+    click.echo(json.dumps(payload, ensure_ascii=False), err=True)

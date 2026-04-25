@@ -10,6 +10,7 @@ option tables and examples.
 ## Contents
 
 - [Installation](#installation)
+- [Prerequisites](#prerequisites)
 - [Authentication](#authentication)
 - [Global options](#global-options)
 - [Output formats](#output-formats)
@@ -68,6 +69,34 @@ make build        # local binary → dist/agentrun
 
 After installation, both `ar` and `agentrun` are available as entry points and behave
 identically. `ar` is shorter; the examples in this manual use it.
+
+## Prerequisites
+
+Two one-time setup steps are required before `ar super-agent` will work.
+
+### 1. Authorize the AliyunAgentRunSuperAgentRole
+
+AgentRun uses a custom RAM service role — **`AliyunAgentRunSuperAgentRole`** —
+to manage runtime resources on your behalf. Open the link below and confirm
+in the RAM console:
+
+[**→ Create AliyunAgentRunSuperAgentRole**](https://ram.console.aliyun.com/authorize?hideTopbar=true&hideSidebar=true&request=%7B%22template%22%3A%22AgentRun%22%2C%22payloads%22%3A%5B%7B%22missionId%22%3A%22SuperAgentCustomRole%22%7D%5D%7D)
+
+Without this role, `ar super-agent run` / `apply` will fail at creation time.
+
+### 2. Grant `AliyunAgentRunFullAccess` to your AccessKey
+
+The AccessKey configured below (see [Authentication](#authentication)) must
+belong to a RAM user (or role) that has the **`AliyunAgentRunFullAccess`**
+system policy attached. If a command exits with code `3` or returns
+`AccessDenied`, this is almost always the cause.
+
+### Want more than QuickStart? Use the console
+
+This CLI covers the QuickStart conversational flow end-to-end. For the full
+AgentRun experience (visual designer, observability, knowledge bases, agent
+marketplace, …), head to the Function Compute AgentRun console:
+<https://functionai.console.aliyun.com/cn-hangzhou/agent/>
 
 ## Authentication
 

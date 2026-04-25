@@ -69,6 +69,30 @@ make build              # 本地打独立二进制 → dist/agentrun
 ar --version            # 或者 agentrun --version
 ```
 
+## 前置准备
+
+使用 `ar super-agent` 相关命令前，需要完成两项**一次性**配置：
+
+### 1. 授权 AliyunAgentRunSuperAgentRole
+
+AgentRun 通过自定义 RAM 服务角色 **`AliyunAgentRunSuperAgentRole`** 代你管理
+运行时资源。点击下方链接，在 RAM 控制台完成授权：
+
+[**→ 创建 AliyunAgentRunSuperAgentRole**](https://ram.console.aliyun.com/authorize?hideTopbar=true&hideSidebar=true&request=%7B%22template%22%3A%22AgentRun%22%2C%22payloads%22%3A%5B%7B%22missionId%22%3A%22SuperAgentCustomRole%22%7D%5D%7D)
+
+未授权时 `ar super-agent run` / `apply` 在创建阶段会直接失败。
+
+### 2. 给 AccessKey 授予 `AliyunAgentRunFullAccess`
+
+`ar config set access_key_id ...` 配置的 AccessKey 所属 RAM 用户/角色需要挂载
+系统策略 **`AliyunAgentRunFullAccess`**。命令报 `AccessDenied` 或退出码 `3`
+时，多半就是少了这个权限。
+
+### 想体验更完整的能力？请前往控制台
+
+本 CLI 完整覆盖 QuickStart 快速对话流程。如需体验 AgentRun 的完整能力，请前往
+函数计算 AgentRun 控制台：<https://functionai.console.aliyun.com/cn-hangzhou/agent/>
+
 ## 快速开始
 
 ### 第 1 步 —— 配置凭证
@@ -165,6 +189,13 @@ ar sa invoke my-helper -m "帮我规划今天的事情" --text-only
 - English reference: [docs/en/index.md](./docs/en/index.md)
 
 每份文档涵盖安装、认证、全局选项、输出格式、退出码以及每个命令的全部选项，附可运行示例。
+
+## 社区
+
+问题反馈、Bug 报告与功能建议，请走
+[GitHub Issues](https://github.com/Serverless-Devs/agentrun-cli/issues)。
+
+实时交流可加入**函数计算 AgentRun 客户群**，钉钉群号 **`134570017218`**。
 
 ## License
 

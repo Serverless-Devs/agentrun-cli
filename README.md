@@ -70,6 +70,33 @@ make build              # standalone binary → dist/agentrun
 ar --version            # or: agentrun --version
 ```
 
+## Prerequisites
+
+Two one-time setup steps are required before `ar super-agent` will work:
+
+### 1. Authorize the AliyunAgentRunSuperAgentRole
+
+AgentRun uses a custom RAM service role — **`AliyunAgentRunSuperAgentRole`** —
+to manage runtime resources on your behalf. Open the link below and confirm
+in the RAM console:
+
+[**→ Create AliyunAgentRunSuperAgentRole**](https://ram.console.aliyun.com/authorize?hideTopbar=true&hideSidebar=true&request=%7B%22template%22%3A%22AgentRun%22%2C%22payloads%22%3A%5B%7B%22missionId%22%3A%22SuperAgentCustomRole%22%7D%5D%7D)
+
+Without this role, `ar super-agent run` / `apply` will fail at creation time.
+
+### 2. Grant `AliyunAgentRunFullAccess` to your AccessKey
+
+The AccessKey you save with `ar config set access_key_id ...` must belong to a
+RAM user (or role) that has the **`AliyunAgentRunFullAccess`** system policy
+attached. If you see exit code `3` or `AccessDenied`, this is almost always
+the cause.
+
+### Want more than QuickStart? Use the console
+
+This CLI covers the QuickStart conversational flow end-to-end. For the full
+AgentRun experience, head to the Function Compute AgentRun console:
+<https://functionai.console.aliyun.com/cn-hangzhou/agent/>
+
 ## Quickstart
 
 ### Step 1 — Configure credentials
@@ -167,6 +194,14 @@ Multi-document YAMLs (`---` separated) let you deploy many agents in one call.
 
 Each page walks through installation, authentication, global options, output formats,
 exit codes and every command option with runnable examples.
+
+## Community
+
+Questions, bug reports and feature requests are welcome on
+[GitHub Issues](https://github.com/Serverless-Devs/agentrun-cli/issues).
+
+For real-time discussion, join the **函数计算 AgentRun 客户群** on DingTalk —
+group number **`134570017218`**.
 
 ## License
 
