@@ -88,9 +88,6 @@ Credentials land in `~/.agentrun/config.json` under the `default` profile. Use
 
 ```bash
 $ ar super-agent run --prompt "You are a Python expert"
-Loading model services...
-? Select model service: svc-tongyi
-? Select model:         qwen-max
 Creating super agent: super-agent-tmp-20260420213045 ...
 Ready. Type your message (/help for commands).
 
@@ -128,9 +125,6 @@ metadata:
   description: "My personal assistant"
 spec:
   prompt: "You are my helpful assistant"
-  model:
-    service: svc-tongyi
-    name: qwen-max
   tools:
     - mcp-time-sa
   skills: []

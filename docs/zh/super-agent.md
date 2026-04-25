@@ -58,8 +58,6 @@ ar sa run [options]
 |------|------|------|------|------|
 | `--name` | string | 否 | `super-agent-tmp-<YYYYMMDDHHMMSS>` | Agent 名。显式命名 → 持久化；自动名 → 同样持久化，仅命名方便识别。 |
 | `--prompt`、`-p` | string | 否 | `You are a helpful assistant.` | 系统提示词。 |
-| `--model-service` | string | 否 | TTY 交互选 | ModelService 名；非 TTY 或 `--no-input` 时必填。 |
-| `--model` | string | 否 | TTY 交互选 | ModelService 内的模型名。 |
 | `--tool` | multi | 否 |  | 工具名，可重复。 |
 | `--skill` | multi | 否 |  | 技能名，可重复。 |
 | `--sandbox` | multi | 否 |  | 沙箱名，可重复。 |
@@ -68,23 +66,21 @@ ar sa run [options]
 | `--message`、`-m` | string | 否 |  | 初始消息 —— 进入 REPL 后立刻发送。 |
 | `--raw` | flag | 否 | false | 强制 raw SSE JSON 行输出。 |
 | `--text-only` | flag | 否 | false | 只显示 Assistant 文本（隐藏工具调用）。 |
-| `--no-input` | flag | 否 | false | 禁用交互式选择器；缺必填参数直接报错。 |
+| `--no-input` | flag | 否 | false | 已弃用，行为为空操作；仅保留以兼容旧脚本。 |
 
 ### 示例
 
 ```bash
-# 零配置 —— ModelService / 模型交互式选择
+# 零配置 —— 服务端选用默认 model
 ar sa run
 
 # 指定 prompt + 初始消息
 ar sa run -p "你是简洁风格的 Python 程序员" -m "写个 FizzBuzz"
 
-# 非交互（脚本/CI）
+# 启用工具
 ar sa run \
-  --model-service svc-tongyi --model qwen-max \
   --prompt "你是助手" \
-  --tool mcp-time-sa \
-  --no-input
+  --tool mcp-time-sa
 
 # 命名让 Agent 持久保留
 ar sa run --name my-helper -p "你是我的助手"
@@ -228,8 +224,6 @@ ar sa create --name <name> [options]
 | `--name` | string | 是 | 全局唯一的 Agent 名。 |
 | `--description` | string | 否 | 描述。 |
 | `--prompt`、`-p` | string | 否 | 系统提示词。 |
-| `--model-service` | string | 否 | ModelService 名。 |
-| `--model` | string | 否 | 模型名。 |
 | `--tool` | multi | 否 | 工具名，可重复。 |
 | `--skill` | multi | 否 | 技能名，可重复。 |
 | `--sandbox` | multi | 否 | 沙箱名，可重复。 |
@@ -240,12 +234,10 @@ ar sa create --name <name> [options]
 
 ```bash
 ar sa create --name my-helper \
-  -p "你是我的助手" \
-  --model-service svc-tongyi --model qwen-max
+  -p "你是我的助手"
 
 ar sa create --name researcher \
   -p "深度调研助手" \
-  --model-service svc-tongyi --model qwen-max \
   --tool web-search --tool mcp-time-sa \
   --skill data-analyzer --skill report-generator
 ```
@@ -307,8 +299,6 @@ ar sa update <NAME> [options]
 | `NAME` | 位置参数 | 要更新的 Agent。 |
 | `--description` | string | 新描述。 |
 | `--prompt`、`-p` | string | 新 prompt。 |
-| `--model-service` | string | 新 ModelService。 |
-| `--model` | string | 新模型名。 |
 | `--tool` | multi | 替换 tools 列表。 |
 | `--skill` | multi | 替换 skills 列表。 |
 | `--sandbox` | multi | 替换 sandboxes 列表。 |
@@ -326,7 +316,6 @@ ar sa update <NAME> [options]
 
 ```bash
 ar sa update my-helper -p "简洁风格的助手"
-ar sa update my-helper --model-service svc-openai --model gpt-4o
 ar sa update my-helper --tool web-search --tool calculator
 ar sa update my-helper --clear-tools
 ```
@@ -399,9 +388,6 @@ metadata:
 spec:
   prompt: |                # 可选
     你是一个得力助手。
-  model:                   # 可选（但发起调用前必须有）
-    service: svc-tongyi
-    name: qwen-max
   tools:
     - mcp-time-sa
   skills: []
@@ -417,8 +403,6 @@ spec:
 | `metadata.name` | `name` |
 | `metadata.description` | `description` |
 | `spec.prompt` | `prompt` |
-| `spec.model.service` | `model_service_name` |
-| `spec.model.name` | `model_name` |
 | `spec.tools` | `tools` |
 | `spec.skills` | `skills` |
 | `spec.sandboxes` | `sandboxes` |
@@ -436,7 +420,6 @@ metadata:
   name: doc-writer
 spec:
   prompt: "你擅长撰写清晰的技术文档"
-  model: { service: svc-tongyi, name: qwen-max }
 ---
 apiVersion: agentrun/v1
 kind: SuperAgent
@@ -444,7 +427,6 @@ metadata:
   name: code-reviewer
 spec:
   prompt: "你是资深 Python Reviewer"
-  model: { service: svc-tongyi, name: qwen-max }
 ```
 
 `apply -f` 按文档顺序处理；任一失败会导致后续中断，**但已成功的 Agent 不会回滚**。

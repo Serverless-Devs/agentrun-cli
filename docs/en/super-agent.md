@@ -59,8 +59,6 @@ ar sa run [options]
 |------|------|----------|---------|-------------|
 | `--name` | string | no | `super-agent-tmp-<YYYYMMDDHHMMSS>` | Agent name. Explicit name → persistent; auto-name → still persistent but clearly temporary. |
 | `--prompt`, `-p` | string | no | `You are a helpful assistant.` | System prompt. |
-| `--model-service` | string | no | TTY-picker | ModelService name. Required if stdin is not a TTY or `--no-input` is set. |
-| `--model` | string | no | TTY-picker | Model name within the ModelService. |
 | `--tool` | multi | no |  | Tool name, repeatable. |
 | `--skill` | multi | no |  | Skill name, repeatable. |
 | `--sandbox` | multi | no |  | Sandbox name, repeatable. |
@@ -69,23 +67,21 @@ ar sa run [options]
 | `--message`, `-m` | string | no |  | Initial message — sent right after entering the REPL. |
 | `--raw` | flag | no | false | Force raw SSE JSON-line output. |
 | `--text-only` | flag | no | false | Only show assistant text (hide tool calls). |
-| `--no-input` | flag | no | false | Disable interactive pickers; any missing required arg fails the command. |
+| `--no-input` | flag | no | false | Deprecated, no-op. Kept for backward script compatibility. |
 
 ### Examples
 
 ```bash
-# Zero-config — CLI picks ModelService/Model interactively
+# Zero-config — server picks a default model
 ar sa run
 
 # Explicit prompt and an initial message
 ar sa run -p "You write concise Python" -m "Implement FizzBuzz"
 
-# Non-interactive (scripts / CI)
+# With tools enabled
 ar sa run \
-  --model-service svc-tongyi --model qwen-max \
   --prompt "You are an assistant" \
-  --tool mcp-time-sa \
-  --no-input
+  --tool mcp-time-sa
 
 # Name it and keep it around
 ar sa run --name my-helper -p "You are my helper"
@@ -232,8 +228,6 @@ ar sa create --name <name> [options]
 | `--name` | string | yes | Agent name (globally unique). |
 | `--description` | string | no | Description. |
 | `--prompt`, `-p` | string | no | System prompt. |
-| `--model-service` | string | no | ModelService name. |
-| `--model` | string | no | Model name. |
 | `--tool` | multi | no | Tool name, repeatable. |
 | `--skill` | multi | no | Skill name, repeatable. |
 | `--sandbox` | multi | no | Sandbox name, repeatable. |
@@ -244,12 +238,10 @@ ar sa create --name <name> [options]
 
 ```bash
 ar sa create --name my-helper \
-  -p "You are my assistant" \
-  --model-service svc-tongyi --model qwen-max
+  -p "You are my assistant"
 
 ar sa create --name researcher \
   -p "Deep research assistant" \
-  --model-service svc-tongyi --model qwen-max \
   --tool web-search --tool mcp-time-sa \
   --skill data-analyzer --skill report-generator
 ```
@@ -311,8 +303,6 @@ ar sa update <NAME> [options]
 | `NAME` | positional | Agent to update. |
 | `--description` | string | New description. |
 | `--prompt`, `-p` | string | New prompt. |
-| `--model-service` | string | New ModelService. |
-| `--model` | string | New model name. |
 | `--tool` | multi | Replacement tool list. |
 | `--skill` | multi | Replacement skill list. |
 | `--sandbox` | multi | Replacement sandbox list. |
@@ -331,7 +321,6 @@ both fails with exit code `2`.
 
 ```bash
 ar sa update my-helper -p "You are a concise helper"
-ar sa update my-helper --model-service svc-openai --model gpt-4o
 ar sa update my-helper --tool web-search --tool calculator
 ar sa update my-helper --clear-tools
 ```
@@ -405,9 +394,6 @@ metadata:
 spec:
   prompt: |                # optional
     You are a helpful assistant.
-  model:                   # optional (but required to actually invoke)
-    service: svc-tongyi
-    name: qwen-max
   tools:
     - mcp-time-sa
   skills: []
@@ -423,8 +409,6 @@ spec:
 | `metadata.name` | `name` |
 | `metadata.description` | `description` |
 | `spec.prompt` | `prompt` |
-| `spec.model.service` | `model_service_name` |
-| `spec.model.name` | `model_name` |
 | `spec.tools` | `tools` |
 | `spec.skills` | `skills` |
 | `spec.sandboxes` | `sandboxes` |
@@ -442,7 +426,6 @@ metadata:
   name: doc-writer
 spec:
   prompt: "You write clear docs"
-  model: { service: svc-tongyi, name: qwen-max }
 ---
 apiVersion: agentrun/v1
 kind: SuperAgent
@@ -450,7 +433,6 @@ metadata:
   name: code-reviewer
 spec:
   prompt: "You are a Python reviewer"
-  model: { service: svc-tongyi, name: qwen-max }
 ```
 
 `apply -f` processes documents in order; if any fails, already-succeeded agents

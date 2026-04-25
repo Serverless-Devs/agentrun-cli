@@ -189,6 +189,51 @@ class TestSafeJson:
         assert "not-json" not in out
 
 
+class TestFlushAndErrorEdges:
+
+    def _stream_that_raises_on_flush(self):
+        class S:
+            def __init__(self):
+                self.buf = []
+
+            def write(self, s):
+                self.buf.append(s)
+
+            def flush(self):
+                raise OSError("flush failed")
+
+            def isatty(self):
+                return False
+        return S()
+
+    def test_finish_swallows_flush_error_pretty(self):
+        """`finish()` flush failures are silently swallowed."""
+        s = self._stream_that_raises_on_flush()
+        r = StreamRenderer(RenderMode.PRETTY, use_color=False, stream=s)
+        # Should not raise even though flush() throws.
+        r.finish()
+
+    def test_finish_with_envelope_swallows_flush_error_raw(self):
+        """RAW envelope finisher: both flushes (finish + envelope) tolerate errors."""
+        s = self._stream_that_raises_on_flush()
+        r = StreamRenderer(RenderMode.RAW, use_color=False, stream=s)
+        r.set_conversation_id("c-1")
+        # Should not raise even though both flush() calls throw.
+        r.finish_with_envelope()
+        joined = "".join(s.buf)
+        assert "envelope" in joined
+
+    def test_color_error_path(self, capsys):
+        """RUN_ERROR with color enabled hits the styled branch of `_write_error`."""
+        r = StreamRenderer(RenderMode.PRETTY, use_color=True)
+        r.feed(_ev("RUN_ERROR", '{"message":"boom"}'))
+        r.finish()
+        out = capsys.readouterr().out
+        # ANSI escape present and message visible.
+        assert "\x1b[" in out
+        assert "boom" in out
+
+
 class TestEventTypeInData:
     """The real server streams SSE with empty event: field.
 

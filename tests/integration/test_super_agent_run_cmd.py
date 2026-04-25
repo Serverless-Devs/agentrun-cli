@@ -73,15 +73,26 @@ class TestRunNonInteractive:
         assert kwargs["model_service_name"] == "svc-tongyi"
         assert kwargs["model_name"] == "qwen-max"
 
-    def test_run_missing_model_no_input(self):
+    def test_run_missing_model_no_input(self, tmp_path):
+        """No model flags + --no-input must succeed; SDK gets None for both."""
         agent = _make_agent()
         (client_p, cfg_p), client = _patch_all(agent)
-        with client_p, cfg_p:
+        state_file = tmp_path / "state.json"
+        with client_p, cfg_p, \
+             patch("agentrun_cli._utils.super_agent_state.STATE_FILE", state_file):
             runner = CliRunner()
             result = runner.invoke(
-                cli, ["sa", "run", "--prompt", "hi", "--no-input"],
+                cli,
+                ["sa", "run",
+                 "--prompt", "hi",
+                 "--no-input",
+                 "--raw"],
+                input="/exit\n",
             )
-        assert result.exit_code != 0
+        assert result.exit_code == 0, result.output
+        kwargs = client.create.call_args.kwargs
+        assert kwargs["model_service_name"] is None
+        assert kwargs["model_name"] is None
 
     def test_run_auto_name_generated(self, tmp_path):
         agent = _make_agent()
@@ -141,3 +152,42 @@ class TestRunNonInteractive:
         assert result.exit_code == 0, result.output
         kwargs = client.create.call_args.kwargs
         assert kwargs["tools"] == ["t1", "t2"]
+
+    def test_run_no_model_flags_passes_none(self, tmp_path):
+        """Without --model-service / --model the CLI must pass None through to SDK."""
+        agent = _make_agent()
+        (client_p, cfg_p), client = _patch_all(agent)
+        state_file = tmp_path / "state.json"
+        with client_p, cfg_p, \
+             patch("agentrun_cli._utils.super_agent_state.STATE_FILE", state_file):
+            runner = CliRunner()
+            result = runner.invoke(
+                cli,
+                ["sa", "run",
+                 "--prompt", "hi",
+                 "--raw"],
+                input="/exit\n",
+            )
+        assert result.exit_code == 0, result.output
+        kwargs = client.create.call_args.kwargs
+        assert kwargs["model_service_name"] is None
+        assert kwargs["model_name"] is None
+
+    def test_run_raw_and_text_only_is_usage_error(self, tmp_path):
+        """--raw + --text-only are mutually exclusive; pick_render_mode raises ValueError -> UsageError."""
+        agent = _make_agent()
+        (client_p, cfg_p), client = _patch_all(agent)
+        state_file = tmp_path / "state.json"
+        with client_p, cfg_p, \
+             patch("agentrun_cli._utils.super_agent_state.STATE_FILE", state_file):
+            runner = CliRunner()
+            result = runner.invoke(
+                cli,
+                ["sa", "run",
+                 "--prompt", "hi",
+                 "--model-service", "svc", "--model", "m",
+                 "--raw", "--text-only"],
+            )
+        assert result.exit_code != 0
+        # click.UsageError -> exit code 2 by default
+        assert result.exit_code == 2 or "raw" in result.output.lower()

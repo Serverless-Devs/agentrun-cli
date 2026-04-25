@@ -242,3 +242,26 @@ class TestReplEmptyInput:
         ):
             run_repl(agent, cfg)
         assert agent.invoke_async.await_count == 0
+
+
+class TestReplStateWriteFailure:
+
+    def test_state_writer_exception_warns_but_does_not_crash(self, capsys):
+        """If STATE_FILE_WRITER raises, REPL prints a warning to stderr and continues."""
+        events = [[_ev("RUN_FINISHED", '{}')]]
+        agent = _make_agent(events)
+        cfg = ReplConfig(
+            agent_name="x",
+            render_mode=RenderMode.RAW,
+            input_fn=MagicMock(side_effect=["hello", "/exit"]),
+        )
+        with patch(
+            "agentrun_cli._utils.super_agent_repl.STATE_FILE_WRITER",
+            side_effect=OSError("disk full"),
+        ):
+            final = run_repl(agent, cfg)
+        # Conversation id from the stream still propagates (state set before write).
+        assert final == "conv-xxx"
+        captured = capsys.readouterr()
+        assert "failed to persist" in captured.err
+        assert "disk full" in captured.err
