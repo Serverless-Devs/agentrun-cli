@@ -27,6 +27,23 @@ EXIT_BAD_INPUT = 2
 EXIT_AUTH_ERROR = 3
 EXIT_SERVER_ERROR = 4
 
+PREREQUISITES_HINT = (
+    "Complete the one-time setup at "
+    "https://github.com/Serverless-Devs/agentrun-cli#prerequisites — "
+    "authorize the AliyunAgentRunSuperAgentRole and grant "
+    "AliyunAgentRunFullAccess to your AccessKey."
+)
+
+_AUTH_PATTERNS = (
+    "Forbidden",
+    "InvalidAccessKey",
+    "SignatureDoesNotMatch",
+    "AccessDenied",
+    "NoPermission",
+    "AliyunAgentRunSuperAgentRole",
+    "EntityNotExist.Role",
+)
+
 
 def handle_errors(func: Callable) -> Callable:
     """Decorator that catches common SDK / HTTP errors and exits cleanly."""
@@ -52,8 +69,8 @@ def handle_errors(func: Callable) -> Callable:
             if "ResourceAlreadyExistError" in exc_type or "AlreadyExist" in exc_type:
                 echo_error("ResourceAlreadyExists", msg)
                 sys.exit(EXIT_BAD_INPUT)
-            if "Forbidden" in msg or "InvalidAccessKey" in msg or "SignatureDoesNotMatch" in msg:
-                echo_error("AuthenticationFailed", msg)
+            if any(pattern in msg for pattern in _AUTH_PATTERNS):
+                echo_error("AuthenticationFailed", msg, hint=PREREQUISITES_HINT)
                 sys.exit(EXIT_AUTH_ERROR)
 
             # Generic fallback

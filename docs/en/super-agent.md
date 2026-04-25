@@ -9,6 +9,12 @@ You declare intent; the platform hosts the runtime.
 Also available as the alias `ar sa`. The conversation sub-group can be reached
 as `ar sa conv` or `ar sa conversation`.
 
+> **Heads up:** before running any command on this page, complete the two
+> one-time setup steps in [Prerequisites](./index.md#prerequisites) — the
+> `AliyunAgentRunSuperAgentRole` authorization and the
+> `AliyunAgentRunFullAccess` policy on your AccessKey. Missing either one
+> surfaces as exit code `3` (`AccessDenied`).
+
 ## Commands
 
 Quickstart & chat:

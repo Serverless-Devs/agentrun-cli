@@ -9,6 +9,7 @@
 ## 目录
 
 - [安装](#安装)
+- [前置准备](#前置准备)
 - [认证](#认证)
 - [全局选项](#全局选项)
 - [输出格式](#输出格式)
@@ -67,6 +68,31 @@ make build        # 本地打独立二进制 → dist/agentrun
 
 安装完成后 `ar` 和 `agentrun` 都是入口点，行为完全一致。`ar` 更短，文档里的示例
 默认用 `ar`。
+
+## 前置准备
+
+使用 `ar super-agent` 相关命令前，需要完成两项**一次性**配置。
+
+### 1. 授权 AliyunAgentRunSuperAgentRole
+
+AgentRun 通过自定义 RAM 服务角色 **`AliyunAgentRunSuperAgentRole`** 代你管理
+运行时资源。点击下方链接，在 RAM 控制台完成授权：
+
+[**→ 创建 AliyunAgentRunSuperAgentRole**](https://ram.console.aliyun.com/authorize?hideTopbar=true&hideSidebar=true&request=%7B%22template%22%3A%22AgentRun%22%2C%22payloads%22%3A%5B%7B%22missionId%22%3A%22SuperAgentCustomRole%22%7D%5D%7D)
+
+未授权时 `ar super-agent run` / `apply` 在创建阶段会直接失败。
+
+### 2. 给 AccessKey 授予 `AliyunAgentRunFullAccess`
+
+下文 [认证](#认证) 章节中配置的 AccessKey，所属 RAM 用户/角色需要挂载系统策略
+**`AliyunAgentRunFullAccess`**。命令报 `AccessDenied` 或退出码 `3` 时，多半就是
+少了这一项权限。
+
+### 想体验更完整的能力？请前往控制台
+
+本 CLI 完整覆盖 QuickStart 快速对话流程。如需可视化编排、Observability、
+知识库、Agent 市场等更完整的能力，请前往函数计算 AgentRun 控制台：
+<https://functionai.console.aliyun.com/cn-hangzhou/agent/>
 
 ## 认证
 

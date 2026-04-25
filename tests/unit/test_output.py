@@ -155,3 +155,9 @@ class TestEchoError:
         parsed = json.loads(err)
         assert parsed["error"] == "TestError"
         assert parsed["message"] == "something went wrong"
+        assert "hint" not in parsed
+
+    def test_includes_hint_when_provided(self, capsys):
+        echo_error("AuthError", "denied", hint="see prerequisites")
+        parsed = json.loads(capsys.readouterr().err)
+        assert parsed["hint"] == "see prerequisites"

@@ -1,5 +1,6 @@
 """Tests for agentrun_cli._utils.error — the handle_errors decorator."""
 
+import json
 import sys
 from unittest.mock import patch
 
@@ -11,6 +12,7 @@ from agentrun_cli._utils.error import (
     EXIT_BAD_INPUT,
     EXIT_NOT_FOUND,
     EXIT_SERVER_ERROR,
+    PREREQUISITES_HINT,
     handle_errors,
 )
 
@@ -81,6 +83,23 @@ class TestHandleErrors:
         with pytest.raises(SystemExit) as exc_info:
             _make_raising_func(exc)()
         assert exc_info.value.code == EXIT_AUTH_ERROR
+
+    @pytest.mark.parametrize(
+        "message",
+        [
+            "AccessDenied: user has no permission",
+            "NoPermission to call CreateSuperAgent",
+            "Role AliyunAgentRunSuperAgentRole not authorized",
+            "EntityNotExist.Role: role not found",
+        ],
+    )
+    def test_prerequisite_patterns_emit_hint(self, message, capsys):
+        with pytest.raises(SystemExit) as exc_info:
+            _make_raising_func(Exception(message))()
+        assert exc_info.value.code == EXIT_AUTH_ERROR
+        payload = json.loads(capsys.readouterr().err)
+        assert payload["error"] == "AuthenticationFailed"
+        assert payload["hint"] == PREREQUISITES_HINT
 
     def test_generic_exception(self):
         exc = Exception("something unexpected")

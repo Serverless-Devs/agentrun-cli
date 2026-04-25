@@ -9,6 +9,12 @@
 该命令组还提供短别名 `ar sa`。会话子组既可用 `ar sa conv` 也可用
 `ar sa conversation`，行为一致。
 
+> **使用前提：** 执行本页任何命令前，请先完成
+> [前置准备](./index.md#前置准备) 中的两项一次性配置 ——
+> 授权 `AliyunAgentRunSuperAgentRole` 角色，并给 AccessKey 挂载
+> `AliyunAgentRunFullAccess` 系统策略。任一项缺失都会以退出码 `3`
+> （`AccessDenied`）失败。
+
 ## 子命令
 
 一键拉起与对话：
