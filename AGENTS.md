@@ -99,3 +99,7 @@ docs/
 - **Cross-link integrity.** When adding a new page or renaming an anchor, update the references in `docs/{en,zh}/index.md`, the two READMEs, and any sibling pages. Anchors use GitHub-slug form (`## Sub-group` → `#sub-group`; Chinese headings preserve the Unicode characters, e.g. `## file 子命令组` → `#file-子命令组`).
 - **Source of truth = the code.** Never document options that do not exist in the Click definitions. When the design doc (`docs_inner/cli-design-*.md`) and the code disagree, the code wins — update the user-facing docs to match the code, and flag the divergence in your PR description.
 - **No partial updates.** A PR that modifies a command without updating both language versions of the user-facing docs is incomplete; reviewers should block it.
+
+## Commit Requirements
+
+- **Sign off every commit.** All commits in this repository must carry a DCO `Signed-off-by:` trailer. Use `git commit -s` (or pass `-s` alongside `-m`); never push a commit without it. CI / merge gates reject unsigned-off commits, so amending or re-creating commits to add the trailer after the fact is wasted work.
