@@ -286,7 +286,7 @@ class TestSuperAgentUpdate:
                 "--tool", "a", "--clear-tools",
             ])
         assert result.exit_code != 0
-        combined = result.output + (result.stderr or "")
+        combined = result.output
         assert (
             "cannot" in combined.lower() or "conflict" in combined.lower()
         )

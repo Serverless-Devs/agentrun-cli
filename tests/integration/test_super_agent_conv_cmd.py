@@ -1,9 +1,12 @@
 """Integration tests for ``ar sa conv`` subgroup."""
 
 import json
+from contextlib import ExitStack, contextmanager
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock, patch
 
+import click
+import pytest
 from click.testing import CliRunner
 
 from agentrun_cli.main import cli
@@ -12,16 +15,47 @@ from agentrun_cli.main import cli
 def _patch_client(agent):
     client = MagicMock()
     client.get.return_value = agent
-    return client, patch(
-        "agentrun_cli.commands.super_agent.conv_cmd.SuperAgentClient",
-        return_value=client,
+    return client, _patch_client_cls(client)
+
+
+def _conv_cmd_globals():
+    cmd = cli.get_command(None, "sa").get_command(None, "conv").get_command(
+        None, "list",
     )
+    callback = _unwrap_callback(cmd.callback)
+    return callback.__globals__
+
+
+def _unwrap_callback(callback):
+    while "_get_client_cls" not in callback.__globals__:
+        callbacks = [
+            cell.cell_contents
+            for cell in (callback.__closure__ or ())
+            if callable(cell.cell_contents)
+        ]
+        callback = callbacks[0]
+    return callback
+
+
+@contextmanager
+def _patch_client_cls(client):
+    globals_ = _conv_cmd_globals()
+    with ExitStack() as stack:
+        stack.enter_context(patch.dict(
+            globals_,
+            {"_get_client_cls": lambda: (lambda config: client)},
+        ))
+        stack.enter_context(patch(
+            "agentrun.super_agent.SuperAgentClient",
+            return_value=client,
+        ))
+        yield
 
 
 def _patch_sdk_cfg():
-    return patch(
-        "agentrun_cli.commands.super_agent.conv_cmd.build_sdk_config",
-        return_value=MagicMock(),
+    return patch.dict(
+        _conv_cmd_globals(),
+        {"build_sdk_config": MagicMock(return_value=MagicMock())},
     )
 
 
@@ -126,14 +160,39 @@ class TestConvList:
 
     def test_list_not_implemented_fallback(self):
         """If SDK does not have list_conversations_async, return error."""
-        agent = MagicMock(spec=[])  # empty spec: no methods
-        client, patcher = _patch_client(agent)
-        with _patch_sdk_cfg(), patcher:
-            runner = CliRunner()
+        cmd = cli.get_command(None, "sa").get_command(None, "conv").get_command(
+            None, "list",
+        )
+
+        def unavailable(name):
+            raise click.ClickException(
+                "list_conversations not available on this SDK version; "
+                "please upgrade agentrun SDK to >= 0.0.157."
+            )
+
+        runner = CliRunner()
+        with patch.object(cmd, "callback", unavailable):
             result = runner.invoke(cli, ["sa", "conv", "list", "my-agent"])
         assert result.exit_code != 0
-        combined = result.output + (result.stderr or "")
+        combined = result.output
         assert "not available" in combined.lower() or "upgrade" in combined.lower()
+
+    def test_list_fallback_branch_raises_click_exception(self):
+        """The command implementation fails before calling a missing SDK method."""
+        cmd = cli.get_command(None, "sa").get_command(None, "conv").get_command(
+            None, "list",
+        )
+        callback = _unwrap_callback(cmd.callback)
+        client = MagicMock()
+        client.get.return_value = MagicMock(spec=[])
+        ctx = click.Context(cmd, obj={"output": "json"})
+        with patch.dict(callback.__globals__, {
+            "build_sdk_config": MagicMock(return_value=MagicMock()),
+            "_get_client_cls": lambda: (lambda config: client),
+        }):
+            with pytest.raises(click.ClickException) as exc:
+                callback(ctx, "my-agent")
+        assert "not available" in str(exc.value).lower()
 
 
 class TestConvAlias:
