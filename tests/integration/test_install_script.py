@@ -22,7 +22,10 @@ def test_install_sh_parses_latest_release_tag_on_posix_sed(tmp_path):
         fake_bin / "curl",
         f"""#!/usr/bin/env sh
 set -eu
-url="${{@:$#}}"
+url=""
+for arg do
+  url="$arg"
+done
 printf '%s\\n' "$url" >> "{calls}"
 case "$url" in
   *"/releases/latest")
