@@ -58,7 +58,7 @@ info "Detected target: $TARGET"
 if [ -z "$VERSION" ]; then
     info "Resolving latest release from github.com/${REPO}"
     VERSION=$($DOWNLOAD "https://api.github.com/repos/${REPO}/releases/latest" \
-        | grep '"tag_name"' | head -1 | sed -E 's/.*"tag_name":\s*"([^"]+)".*/\1/')
+        | grep '"tag_name"' | head -1 | sed -E 's/.*"tag_name":[[:space:]]*"([^"]+)".*/\1/')
     [ -n "$VERSION" ] || err "could not resolve latest release tag"
 fi
 info "Version: $VERSION"
