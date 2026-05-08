@@ -8,7 +8,8 @@ from pathlib import Path
 
 def _write_executable(path: Path, content: str) -> None:
     path.write_text(content)
-    path.chmod(path.stat().st_mode | stat.S_IXUSR)
+    executable_bits = stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH
+    path.chmod(path.stat().st_mode | executable_bits)
 
 
 def test_install_sh_parses_latest_release_tag_on_posix_sed(tmp_path):
@@ -53,6 +54,42 @@ esac
 """,
     )
     _write_executable(
+        fake_bin / "sed",
+        """#!/usr/bin/env sh
+expr=""
+while [ "$#" -gt 0 ]; do
+  case "$1" in
+    -E)
+      shift
+      expr="${1:-}"
+      ;;
+    *)
+      expr="$1"
+      ;;
+  esac
+  shift || break
+done
+
+case "$expr" in
+  *'[[:space:]]'*)
+    while IFS= read -r line; do
+      case "$line" in
+        *tag_name*)
+          printf '%s\n' 'v0.1.0'
+          ;;
+        *)
+          printf '%s\n' "$line"
+          ;;
+      esac
+    done
+    ;;
+  *)
+    cat
+    ;;
+esac
+""",
+    )
+    _write_executable(
         fake_bin / "tar",
         """#!/usr/bin/env sh
 while [ "$#" -gt 0 ]; do
@@ -76,7 +113,7 @@ printf '%s\n' 'expected-sha  agentrun-0.1.0-darwin-arm64.tar.gz'
 
     env = {
         **os.environ,
-        "PATH": f"{fake_bin}:{os.environ['PATH']}",
+        "PATH": f"{fake_bin}:{os.environ.get('PATH', '')}",
         "AGENTRUN_INSTALL": str(install_dir),
         "AGENTRUN_REPO": "Serverless-Devs/agentrun-cli",
     }
