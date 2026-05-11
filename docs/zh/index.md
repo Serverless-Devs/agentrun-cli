@@ -193,5 +193,5 @@ ar sandbox exec "$SANDBOX" --code "print('hello')"
 | `sandbox` | `sb` | 沙箱以及 file / process / context / template / browser 子组 | [sandbox.md](./sandbox.md) |
 | `tool` |  | MCP 与 FunctionCall 工具 + 子工具调用 | [tool.md](./tool.md) |
 | `skill` |  | 平台侧技能包 + 本地 scan / load / exec | [skill.md](./skill.md) |
-| `sync-skills` |  | 把平台 skills 同步到 Claude Code/Codex 本地技能目录 | [sync-skills.md](./sync-skills.md) |
+| `sync-skills` |  | 把平台 skills 同步到 AI 工具本地技能目录（Claude Code、Codex、GitHub Copilot、Cursor、Qoder） | [sync-skills.md](./sync-skills.md) |
 | `super-agent` | `sa` | 一键拉起 REPL、声明式部署、CRUD、会话管理 | [super-agent.md](./super-agent.md) |
