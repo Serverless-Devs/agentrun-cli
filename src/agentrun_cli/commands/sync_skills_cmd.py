@@ -215,9 +215,11 @@ def sync_skills(
 ):
     """Sync platform skills to local AI tool skill directories."""
     if use_claude_code == use_codex:
-        raise click.UsageError("Exactly one of --claude-code or --codex is required.")
+        raise click.UsageError(
+            "You must specify exactly one of --claude-code or --codex."
+        )
     if user_scope == project_scope:
-        raise click.UsageError("Exactly one of --user or --project is required.")
+        raise click.UsageError("You must specify exactly one of --user or --project.")
 
     ai_tool = "claude-code" if use_claude_code else "codex"
     scope = "user" if user_scope else "project"
@@ -225,7 +227,6 @@ def sync_skills(
     os.makedirs(target_dir, exist_ok=True)
 
     profile, region = _ctx_cfg(ctx)
-    cfg = build_sdk_config(profile_name=profile, region=region)
     all_skills = _list_platform_skills(profile, region)
     requested_workspaces = set(workspaces or [])
 
@@ -262,6 +263,7 @@ def sync_skills(
 
     downloaded = []
     updated = []
+    cfg = build_sdk_config(profile_name=profile, region=region)
     from agentrun.tool import Tool
 
     for name, remote_updated_at, local_exists in to_sync:

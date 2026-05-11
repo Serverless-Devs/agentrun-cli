@@ -44,9 +44,21 @@ class TestSyncSkillsValidation:
         assert result.exit_code != 0
         assert "--claude-code or --codex" in result.output
 
+    def test_rejects_both_tool_flags(self):
+        runner = CliRunner()
+        result = runner.invoke(sync_skills, ["--claude-code", "--codex", "--user"])
+        assert result.exit_code != 0
+        assert "--claude-code or --codex" in result.output
+
     def test_requires_exactly_one_scope(self):
         runner = CliRunner()
         result = runner.invoke(sync_skills, ["--claude-code"])
+        assert result.exit_code != 0
+        assert "--user or --project" in result.output
+
+    def test_rejects_both_scope_flags(self):
+        runner = CliRunner()
+        result = runner.invoke(sync_skills, ["--claude-code", "--user", "--project"])
         assert result.exit_code != 0
         assert "--user or --project" in result.output
 
