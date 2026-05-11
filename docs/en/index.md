@@ -197,4 +197,5 @@ Errors are written to stderr as JSON:
 | `sandbox` | `sb` | Sandboxes plus file, process, context, template and browser sub-groups | [sandbox.md](./sandbox.md) |
 | `tool` |  | MCP and FunctionCall tools + sub-tool invocation | [tool.md](./tool.md) |
 | `skill` |  | Platform skill packages + local scan/load/exec | [skill.md](./skill.md) |
+| `sync-skills` |  | Sync platform skills to Claude Code/Codex skill directories | [sync-skills.md](./sync-skills.md) |
 | `super-agent` | `sa` | Quickstart REPL, declarative deploy, CRUD, conversations | [super-agent.md](./super-agent.md) |

@@ -185,6 +185,7 @@ Multi-document YAMLs (`---` separated) let you deploy many agents in one call.
 | `sandbox` | `sb` | Sandboxes + files, processes, contexts, templates, browser | [en](./docs/en/sandbox.md) · [zh](./docs/zh/sandbox.md) |
 | `tool` |  | MCP and FunctionCall tools | [en](./docs/en/tool.md) · [zh](./docs/zh/tool.md) |
 | `skill` |  | Platform skill packages + local execution | [en](./docs/en/skill.md) · [zh](./docs/zh/skill.md) |
+| `sync-skills` |  | Sync platform skills to Claude Code/Codex local skills directories | [en](./docs/en/sync-skills.md) · [zh](./docs/zh/sync-skills.md) |
 | `super-agent` | `sa` | Quickstart / CRUD / declarative / conversation | [en](./docs/en/super-agent.md) · [zh](./docs/zh/super-agent.md) |
 
 ## Documentation

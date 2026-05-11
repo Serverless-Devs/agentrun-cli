@@ -22,6 +22,7 @@ from agentrun_cli.commands.model_cmd import model_group
 from agentrun_cli.commands.sandbox import sandbox_group
 from agentrun_cli.commands.skill_cmd import skill_group
 from agentrun_cli.commands.super_agent import super_agent_group
+from agentrun_cli.commands.sync_skills_cmd import sync_skills
 from agentrun_cli.commands.tool_cmd import tool_group
 
 
@@ -106,6 +107,7 @@ cli.add_command(sandbox_group)
 cli._aliases["sb"] = "sandbox"
 cli.add_command(tool_group)
 cli.add_command(skill_group)
+cli.add_command(sync_skills)
 cli.add_command(super_agent_group)
 cli._aliases["sa"] = "super-agent"
 
