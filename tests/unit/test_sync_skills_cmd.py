@@ -38,27 +38,28 @@ def _patch_tool_download():
 
 class TestSyncSkillsValidation:
 
-    def test_requires_exactly_one_tool(self):
+    def test_requires_tool_flag(self):
         runner = CliRunner()
         result = runner.invoke(sync_skills, ["--user"])
         assert result.exit_code != 0
-        assert "--claude-code or --codex" in result.output
+        assert "--tool" in result.output
 
-    def test_rejects_both_tool_flags(self):
+    def test_rejects_invalid_tool_name(self):
         runner = CliRunner()
-        result = runner.invoke(sync_skills, ["--claude-code", "--codex", "--user"])
+        result = runner.invoke(sync_skills, ["--tool", "unknown-tool", "--user"])
         assert result.exit_code != 0
-        assert "--claude-code or --codex" in result.output
 
     def test_requires_exactly_one_scope(self):
         runner = CliRunner()
-        result = runner.invoke(sync_skills, ["--claude-code"])
+        result = runner.invoke(sync_skills, ["--tool", "claude-code"])
         assert result.exit_code != 0
         assert "--user or --project" in result.output
 
     def test_rejects_both_scope_flags(self):
         runner = CliRunner()
-        result = runner.invoke(sync_skills, ["--claude-code", "--user", "--project"])
+        result = runner.invoke(
+            sync_skills, ["--tool", "claude-code", "--user", "--project"]
+        )
         assert result.exit_code != 0
         assert "--user or --project" in result.output
 
@@ -87,13 +88,13 @@ class TestSyncSkillsCommand:
             with runner.isolated_filesystem():
                 result = runner.invoke(
                     sync_skills,
-                    ["--claude-code", "--user"],
+                    ["--tool", "claude-code", "--user"],
                     input="y\n",
                     env={"HOME": os.getcwd()},
                 )
 
         assert result.exit_code == 0, result.output
-        payload = result.output[result.output.find("{") :]
+        payload = result.output[result.output.find("{"):]
         out = json.loads(payload)
         assert out["managed_skill_total"] == 2
         assert len(out["downloaded"]) == 2
@@ -136,7 +137,12 @@ class TestSyncSkillsCommand:
 
                 result = runner.invoke(
                     sync_skills,
-                    ["--claude-code", "--project", "--workspace", "abc", "-y"],
+                    [
+                        "--tool", "claude-code",
+                        "--project",
+                        "--workspace", "abc",
+                        "-y",
+                    ],
                 )
 
         assert result.exit_code == 0, result.output
@@ -168,7 +174,7 @@ class TestSyncSkillsCommand:
 
                 result = runner.invoke(
                     sync_skills,
-                    ["--codex", "--project", "--delete-unmanaged", "-y"],
+                    ["--tool", "codex", "--project", "--delete-unmanaged", "-y"],
                 )
 
                 assert not os.path.exists(".codex/skills/skill-old")
@@ -176,3 +182,85 @@ class TestSyncSkillsCommand:
         assert result.exit_code == 0, result.output
         out = json.loads(result.output)
         assert out["removed"] == ["skill-old"]
+
+    @patch(
+        "agentrun_cli.commands.sync_skills_cmd.build_sdk_config",
+        return_value=MagicMock(),
+    )
+    def test_cursor_project_scope(self, _mock_cfg):
+        items = [SimpleNamespace(tool_name="skill-x", updated_at="2026-02-01")]
+        mock_models = _mock_models_module()
+
+        with _patch_client_with_items(items), _patch_tool_download(), patch.dict(
+            "sys.modules",
+            {
+                "alibabacloud_agentrun20250910": MagicMock(),
+                "alibabacloud_agentrun20250910.models": mock_models,
+            },
+        ):
+            runner = CliRunner()
+            with runner.isolated_filesystem():
+                result = runner.invoke(
+                    sync_skills,
+                    ["--tool", "cursor", "--project", "-y"],
+                )
+
+        assert result.exit_code == 0, result.output
+        out = json.loads(result.output)
+        assert out["ai_tool"] == "cursor"
+        assert ".cursor/skills" in out["target_dir"]
+
+    @patch(
+        "agentrun_cli.commands.sync_skills_cmd.build_sdk_config",
+        return_value=MagicMock(),
+    )
+    def test_github_copilot_user_scope(self, _mock_cfg):
+        items = [SimpleNamespace(tool_name="skill-y", updated_at="2026-03-01")]
+        mock_models = _mock_models_module()
+
+        with _patch_client_with_items(items), _patch_tool_download(), patch.dict(
+            "sys.modules",
+            {
+                "alibabacloud_agentrun20250910": MagicMock(),
+                "alibabacloud_agentrun20250910.models": mock_models,
+            },
+        ):
+            runner = CliRunner()
+            with runner.isolated_filesystem():
+                result = runner.invoke(
+                    sync_skills,
+                    ["--tool", "github-copilot", "--user", "-y"],
+                    env={"HOME": os.getcwd()},
+                )
+
+        assert result.exit_code == 0, result.output
+        out = json.loads(result.output)
+        assert out["ai_tool"] == "github-copilot"
+        assert "github" in out["target_dir"]
+
+    @patch(
+        "agentrun_cli.commands.sync_skills_cmd.build_sdk_config",
+        return_value=MagicMock(),
+    )
+    def test_qoder_project_scope(self, _mock_cfg):
+        items = [SimpleNamespace(tool_name="skill-z", updated_at="2026-04-01")]
+        mock_models = _mock_models_module()
+
+        with _patch_client_with_items(items), _patch_tool_download(), patch.dict(
+            "sys.modules",
+            {
+                "alibabacloud_agentrun20250910": MagicMock(),
+                "alibabacloud_agentrun20250910.models": mock_models,
+            },
+        ):
+            runner = CliRunner()
+            with runner.isolated_filesystem():
+                result = runner.invoke(
+                    sync_skills,
+                    ["--tool", "qoder", "--project", "-y"],
+                )
+
+        assert result.exit_code == 0, result.output
+        out = json.loads(result.output)
+        assert out["ai_tool"] == "qoder"
+        assert ".qoder/skills" in out["target_dir"]

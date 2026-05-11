@@ -13,6 +13,14 @@ from agentrun_cli._utils.output import format_output
 
 _META_FILE_NAME = ".agentrun-sync-skills.json"
 
+_TOOL_CHOICES = (
+    "claude-code",
+    "codex",
+    "github-copilot",
+    "cursor",
+    "qoder",
+)
+
 
 def _ctx_cfg(ctx):
     return (ctx.obj or {}).get("profile"), (ctx.obj or {}).get("region")
@@ -72,19 +80,23 @@ def _extract_workspace_values(skill) -> set[str]:
     return values
 
 
+_TOOL_ROOTS: dict[str, tuple[str, str]] = {
+    # (user_root, project_subdir_name)
+    "claude-code": ("~/.claude", ".claude"),
+    "codex": ("~/.codex", ".codex"),
+    "github-copilot": ("~/.github/copilot", ".github/copilot"),
+    "cursor": ("~/.cursor", ".cursor"),
+    "qoder": ("~/.qoder", ".qoder"),
+}
+
+
 def _resolve_target_dir(ai_tool: str, scope: str) -> str:
-    if ai_tool == "claude-code":
-        root = (
-            os.path.expanduser("~/.claude")
-            if scope == "user"
-            else os.path.abspath(".claude")
-        )
-    else:
-        root = (
-            os.path.expanduser("~/.codex")
-            if scope == "user"
-            else os.path.abspath(".codex")
-        )
+    user_root, project_dir = _TOOL_ROOTS[ai_tool]
+    root = (
+        os.path.expanduser(user_root)
+        if scope == "user"
+        else os.path.abspath(project_dir)
+    )
     return os.path.join(root, "skills")
 
 
@@ -148,21 +160,16 @@ def _list_platform_skills(profile, region):
 
 @click.command(
     "sync-skills",
-    help="Sync platform skills to Claude Code or Codex skill directories.",
+    help="Sync platform skills to a local AI tool skill directory.",
 )
 @click.option(
-    "--claude-code",
-    "use_claude_code",
-    is_flag=True,
-    default=False,
-    help="Sync to Claude Code skill directory.",
-)
-@click.option(
-    "--codex",
-    "use_codex",
-    is_flag=True,
-    default=False,
-    help="Sync to Codex skill directory.",
+    "--tool",
+    "ai_tool",
+    type=click.Choice(_TOOL_CHOICES),
+    required=True,
+    help=(
+        "Target AI tool: claude-code, codex, github-copilot, cursor, qoder."
+    ),
 )
 @click.option(
     "--user",
@@ -205,8 +212,7 @@ def _list_platform_skills(profile, region):
 @handle_errors
 def sync_skills(
     ctx,
-    use_claude_code,
-    use_codex,
+    ai_tool,
     user_scope,
     project_scope,
     workspaces,
@@ -214,14 +220,9 @@ def sync_skills(
     auto_confirm,
 ):
     """Sync platform skills to local AI tool skill directories."""
-    if use_claude_code == use_codex:
-        raise click.UsageError(
-            "You must specify exactly one of --claude-code or --codex."
-        )
     if user_scope == project_scope:
         raise click.UsageError("You must specify exactly one of --user or --project.")
 
-    ai_tool = "claude-code" if use_claude_code else "codex"
     scope = "user" if user_scope else "project"
     target_dir = _resolve_target_dir(ai_tool, scope)
     os.makedirs(target_dir, exist_ok=True)

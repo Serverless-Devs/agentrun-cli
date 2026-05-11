@@ -46,7 +46,7 @@ class TestSyncSkillsCommand:
             runner = CliRunner()
             result = runner.invoke(
                 cli,
-                ["sync-skills", "--claude-code", "--project", "-y"],
+                ["sync-skills", "--tool", "claude-code", "--project", "-y"],
             )
 
         assert result.exit_code == 0, result.output
@@ -54,11 +54,27 @@ class TestSyncSkillsCommand:
         assert out["ai_tool"] == "claude-code"
         assert out["managed_skill_total"] == 1
 
-    def test_sync_usage_error(self):
+    def test_sync_usage_error_missing_scope(self):
         runner = CliRunner()
         result = runner.invoke(
             cli,
-            ["sync-skills", "--claude-code", "--user", "--project"],
+            ["sync-skills", "--tool", "cursor"],
         )
         assert result.exit_code != 0
         assert "--user or --project" in result.output
+
+    def test_sync_usage_error_both_scopes(self):
+        runner = CliRunner()
+        result = runner.invoke(
+            cli,
+            ["sync-skills", "--tool", "claude-code", "--user", "--project"],
+        )
+        assert result.exit_code != 0
+        assert "--user or --project" in result.output
+
+    def test_sync_help_lists_all_tools(self):
+        runner = CliRunner()
+        result = runner.invoke(cli, ["sync-skills", "--help"])
+        assert result.exit_code == 0
+        for tool in ("claude-code", "codex", "github-copilot", "cursor", "qoder"):
+            assert tool in result.output
