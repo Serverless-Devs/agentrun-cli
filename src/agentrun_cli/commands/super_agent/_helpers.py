@@ -1,7 +1,6 @@
 """Shared helpers for super_agent commands."""
 
 import asyncio
-from typing import Optional, Tuple
 
 
 def serialize_super_agent(agent) -> dict:
@@ -37,7 +36,7 @@ def asyncio_run(coro):
     return asyncio.run(coro)
 
 
-def ctx_cfg(ctx) -> Tuple[Optional[str], Optional[str]]:
+def ctx_cfg(ctx) -> tuple[str | None, str | None]:
     """Return (profile, region) from ctx.obj (tolerating None)."""
     obj = getattr(ctx, "obj", None) or {}
     return obj.get("profile"), obj.get("region")

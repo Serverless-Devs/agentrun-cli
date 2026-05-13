@@ -8,7 +8,6 @@ import zipfile
 from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
-import click
 import pytest
 from click.testing import CliRunner
 
@@ -21,13 +20,12 @@ from agentrun_cli.commands.skill_cmd import (
     skill_group,
 )
 
-
 # ---------------------------------------------------------------------------
 # Helper: _ctx_cfg
 # ---------------------------------------------------------------------------
 
-class TestCtxCfg:
 
+class TestCtxCfg:
     def test_returns_profile_and_region(self):
         ctx = SimpleNamespace(obj={"profile": "dev", "region": "cn-hangzhou"})
         assert _ctx_cfg(ctx) == ("dev", "cn-hangzhou")
@@ -45,8 +43,8 @@ class TestCtxCfg:
 # Helper: _serialize_tool
 # ---------------------------------------------------------------------------
 
-class TestSerializeTool:
 
+class TestSerializeTool:
     def test_all_fields(self):
         t = SimpleNamespace(
             tool_id="t-123",
@@ -70,8 +68,13 @@ class TestSerializeTool:
 
     def test_none_fields_excluded(self):
         t = SimpleNamespace(
-            tool_id=None, tool_name="s", tool_type=None,
-            status=None, description=None, created_at=None, updated_at=None,
+            tool_id=None,
+            tool_name="s",
+            tool_type=None,
+            status=None,
+            description=None,
+            created_at=None,
+            updated_at=None,
         )
         result = _serialize_tool(t)
         assert result == {"tool_name": "s"}
@@ -101,8 +104,8 @@ class TestSerializeTool:
 # Helper: _zip_directory
 # ---------------------------------------------------------------------------
 
-class TestZipDirectory:
 
+class TestZipDirectory:
     def test_zips_directory(self, tmp_path):
         (tmp_path / "a.txt").write_text("hello")
         sub = tmp_path / "sub"
@@ -131,8 +134,8 @@ class TestZipDirectory:
 # Helper: _load_json_option
 # ---------------------------------------------------------------------------
 
-class TestLoadJsonOption:
 
+class TestLoadJsonOption:
     def test_none(self):
         assert _load_json_option(None) is None
 
@@ -153,8 +156,8 @@ class TestLoadJsonOption:
 # Helper: _extract_description
 # ---------------------------------------------------------------------------
 
-class TestExtractDescription:
 
+class TestExtractDescription:
     def test_extracts_from_frontmatter(self, tmp_path):
         md = tmp_path / "SKILL.md"
         md.write_text("---\ndescription: My cool skill\n---\n# Heading\n")
@@ -188,8 +191,8 @@ class TestExtractDescription:
 # CLI commands (via CliRunner, mock SDK)
 # ---------------------------------------------------------------------------
 
-class TestSkillListCommand:
 
+class TestSkillListCommand:
     @patch("agentrun_cli.commands.skill_cmd.get_agentrun_client")
     def test_list_empty(self, mock_client_fn):
         client = MagicMock()
@@ -206,8 +209,15 @@ class TestSkillListCommand:
     def test_list_with_items(self, mock_client_fn):
         client = MagicMock()
         mock_client_fn.return_value = (client, {}, MagicMock())
-        t1 = SimpleNamespace(tool_id="t1", tool_name="skill-a", tool_type="SKILL", status="ACTIVE",
-                             description=None, created_at=None, updated_at=None)
+        t1 = SimpleNamespace(
+            tool_id="t1",
+            tool_name="skill-a",
+            tool_type="SKILL",
+            status="ACTIVE",
+            description=None,
+            created_at=None,
+            updated_at=None,
+        )
         items_container = SimpleNamespace(items=[t1])
         body = SimpleNamespace(data=items_container)
         client.list_tools_with_options.return_value = SimpleNamespace(body=body)
@@ -226,12 +236,13 @@ class TestSkillListCommand:
         client.list_tools_with_options.return_value = SimpleNamespace(body=body)
 
         runner = CliRunner()
-        result = runner.invoke(skill_group, ["list", "--page-number", "2", "--page-size", "5"])
+        result = runner.invoke(
+            skill_group, ["list", "--page-number", "2", "--page-size", "5"]
+        )
         assert result.exit_code == 0
 
 
 class TestSkillDeleteCommand:
-
     @patch("agentrun_cli.commands.skill_cmd.get_agentrun_client")
     def test_delete(self, mock_client_fn):
         client = MagicMock()
@@ -245,7 +256,6 @@ class TestSkillDeleteCommand:
 
 
 class TestSkillCreateCommand:
-
     @patch("agentrun_cli.commands.skill_cmd.get_agentrun_client")
     def test_create_missing_skill_md(self, mock_client_fn):
         mock_client_fn.return_value = (MagicMock(), {}, MagicMock())
@@ -253,7 +263,9 @@ class TestSkillCreateCommand:
         runner = CliRunner()
         with runner.isolated_filesystem():
             os.makedirs("my-skill")
-            result = runner.invoke(skill_group, ["create", "--name", "s", "--code-dir", "my-skill"])
+            result = runner.invoke(
+                skill_group, ["create", "--name", "s", "--code-dir", "my-skill"]
+            )
         assert result.exit_code != 0
         assert "SKILL.md" in result.output
 
@@ -262,8 +274,15 @@ class TestSkillCreateCommand:
         client = MagicMock()
         mock_client_fn.return_value = (client, {}, MagicMock())
 
-        data = SimpleNamespace(tool_id="t-new", tool_name="s", tool_type="SKILL", status="CREATED",
-                               description=None, created_at=None, updated_at=None)
+        data = SimpleNamespace(
+            tool_id="t-new",
+            tool_name="s",
+            tool_type="SKILL",
+            status="CREATED",
+            description=None,
+            created_at=None,
+            updated_at=None,
+        )
         client.create_tool_with_options.return_value = SimpleNamespace(
             body=SimpleNamespace(data=data)
         )
@@ -273,7 +292,9 @@ class TestSkillCreateCommand:
             os.makedirs("my-skill")
             with open("my-skill/SKILL.md", "w") as f:
                 f.write("---\ndescription: test skill\n---\n# Hello\n")
-            result = runner.invoke(skill_group, ["create", "--name", "s", "--code-dir", "my-skill"])
+            result = runner.invoke(
+                skill_group, ["create", "--name", "s", "--code-dir", "my-skill"]
+            )
 
         assert result.exit_code == 0
         client.create_tool_with_options.assert_called_once()
@@ -283,8 +304,15 @@ class TestSkillCreateCommand:
         client = MagicMock()
         mock_client_fn.return_value = (client, {}, MagicMock())
 
-        data = SimpleNamespace(tool_id="t-new", tool_name="s", tool_type="SKILL", status="CREATED",
-                               description="explicit desc", created_at=None, updated_at=None)
+        data = SimpleNamespace(
+            tool_id="t-new",
+            tool_name="s",
+            tool_type="SKILL",
+            status="CREATED",
+            description="explicit desc",
+            created_at=None,
+            updated_at=None,
+        )
         client.create_tool_with_options.return_value = SimpleNamespace(
             body=SimpleNamespace(data=data)
         )
@@ -294,10 +322,20 @@ class TestSkillCreateCommand:
             os.makedirs("my-skill")
             with open("my-skill/SKILL.md", "w") as f:
                 f.write("# Hello\n")
-            result = runner.invoke(skill_group, [
-                "create", "--name", "s", "--code-dir", "my-skill",
-                "--description", "explicit desc", "--credential", "cred-1",
-            ])
+            result = runner.invoke(
+                skill_group,
+                [
+                    "create",
+                    "--name",
+                    "s",
+                    "--code-dir",
+                    "my-skill",
+                    "--description",
+                    "explicit desc",
+                    "--credential",
+                    "cred-1",
+                ],
+            )
 
         assert result.exit_code == 0
 
@@ -306,8 +344,15 @@ class TestSkillCreateCommand:
         client = MagicMock()
         mock_client_fn.return_value = (client, {}, MagicMock())
 
-        data = SimpleNamespace(tool_id="t-new", tool_name="s", tool_type="SKILL", status="CREATED",
-                               description=None, created_at=None, updated_at=None)
+        data = SimpleNamespace(
+            tool_id="t-new",
+            tool_name="s",
+            tool_type="SKILL",
+            status="CREATED",
+            description=None,
+            created_at=None,
+            updated_at=None,
+        )
         client.create_tool_with_options.return_value = SimpleNamespace(
             body=SimpleNamespace(data=data)
         )
@@ -319,9 +364,18 @@ class TestSkillCreateCommand:
                 f.write("# Hello\n")
             with open("config.json", "w") as f:
                 json.dump({"tool_name": "s", "description": "from file"}, f)
-            result = runner.invoke(skill_group, [
-                "create", "--name", "s", "--code-dir", "my-skill", "--from-file", "config.json",
-            ])
+            result = runner.invoke(
+                skill_group,
+                [
+                    "create",
+                    "--name",
+                    "s",
+                    "--code-dir",
+                    "my-skill",
+                    "--from-file",
+                    "config.json",
+                ],
+            )
 
         assert result.exit_code == 0
 
@@ -338,21 +392,27 @@ class TestSkillCreateCommand:
             os.makedirs("my-skill")
             with open("my-skill/SKILL.md", "w") as f:
                 f.write("---\ndescription: test\n---\n")
-            result = runner.invoke(skill_group, ["create", "--name", "s", "--code-dir", "my-skill"])
+            result = runner.invoke(
+                skill_group, ["create", "--name", "s", "--code-dir", "my-skill"]
+            )
 
         assert result.exit_code == 0
         assert "s" in result.output
 
 
 class TestSkillGetCommand:
-
     @patch("agentrun_cli.commands.skill_cmd.build_sdk_config")
     @patch("agentrun_cli.commands.skill_cmd.format_output")
     def test_get(self, mock_fmt, mock_cfg):
         mock_cfg.return_value = MagicMock()
         tool_obj = SimpleNamespace(
-            tool_id="t-1", tool_name="web-scraper", tool_type="SKILL",
-            status="ACTIVE", description="A scraper", created_at=None, updated_at=None,
+            tool_id="t-1",
+            tool_name="web-scraper",
+            tool_type="SKILL",
+            status="ACTIVE",
+            description="A scraper",
+            created_at=None,
+            updated_at=None,
         )
         with patch("agentrun.tool.Tool.get_by_name", return_value=tool_obj):
             runner = CliRunner()
@@ -361,7 +421,6 @@ class TestSkillGetCommand:
 
 
 class TestSkillDownloadCommand:
-
     @patch("agentrun_cli.commands.skill_cmd.build_sdk_config")
     def test_download(self, mock_cfg):
         mock_cfg.return_value = MagicMock()
@@ -380,19 +439,27 @@ class TestSkillDownloadCommand:
         tool_obj.download_skill.return_value = "/custom/web-scraper"
         with patch("agentrun.tool.Tool.get_by_name", return_value=tool_obj):
             runner = CliRunner()
-            result = runner.invoke(skill_group, ["download", "--name", "web-scraper", "--dir", "/custom"])
+            result = runner.invoke(
+                skill_group, ["download", "--name", "web-scraper", "--dir", "/custom"]
+            )
         assert result.exit_code == 0
 
 
 class TestSkillScanCommand:
-
     def test_scan(self):
-        skill1 = SimpleNamespace(name="s1", description="Skill 1", version="1.0", path="/skills/s1")
-        skill2 = SimpleNamespace(name="s2", description="Skill 2", version="2.0", path="/skills/s2")
+        skill1 = SimpleNamespace(
+            name="s1", description="Skill 1", version="1.0", path="/skills/s1"
+        )
+        skill2 = SimpleNamespace(
+            name="s2", description="Skill 2", version="2.0", path="/skills/s2"
+        )
         mock_loader = MagicMock()
         mock_loader.scan_skills.return_value = [skill1, skill2]
 
-        with patch("agentrun.integration.utils.skill_loader.SkillLoader", return_value=mock_loader):
+        with patch(
+            "agentrun.integration.utils.skill_loader.SkillLoader",
+            return_value=mock_loader,
+        ):
             runner = CliRunner()
             result = runner.invoke(skill_group, ["scan", "--dir", "/skills"])
         assert result.exit_code == 0
@@ -401,16 +468,22 @@ class TestSkillScanCommand:
 
 
 class TestSkillLoadCommand:
-
     def test_load_found(self):
         detail = SimpleNamespace(
-            name="web-scraper", description="A scraper", version="1.0",
-            path="/skills/web-scraper", instruction="Do scraping", files=["scraper.py"],
+            name="web-scraper",
+            description="A scraper",
+            version="1.0",
+            path="/skills/web-scraper",
+            instruction="Do scraping",
+            files=["scraper.py"],
         )
         mock_loader = MagicMock()
         mock_loader.load_skill.return_value = detail
 
-        with patch("agentrun.integration.utils.skill_loader.SkillLoader", return_value=mock_loader):
+        with patch(
+            "agentrun.integration.utils.skill_loader.SkillLoader",
+            return_value=mock_loader,
+        ):
             runner = CliRunner()
             result = runner.invoke(skill_group, ["load", "--name", "web-scraper"])
         assert result.exit_code == 0
@@ -420,7 +493,10 @@ class TestSkillLoadCommand:
         mock_loader = MagicMock()
         mock_loader.load_skill.return_value = None
 
-        with patch("agentrun.integration.utils.skill_loader.SkillLoader", return_value=mock_loader):
+        with patch(
+            "agentrun.integration.utils.skill_loader.SkillLoader",
+            return_value=mock_loader,
+        ):
             runner = CliRunner()
             result = runner.invoke(skill_group, ["load", "--name", "nonexistent"])
         assert result.exit_code != 0
@@ -428,24 +504,37 @@ class TestSkillLoadCommand:
 
 
 class TestSkillReadFileCommand:
-
     def test_read_file_content(self):
         mock_loader = MagicMock()
-        mock_loader._read_skill_file_func.return_value = json.dumps({"content": "print('hi')"})
+        mock_loader._read_skill_file_func.return_value = json.dumps(
+            {"content": "print('hi')"}
+        )
 
-        with patch("agentrun.integration.utils.skill_loader.SkillLoader", return_value=mock_loader):
+        with patch(
+            "agentrun.integration.utils.skill_loader.SkillLoader",
+            return_value=mock_loader,
+        ):
             runner = CliRunner()
-            result = runner.invoke(skill_group, ["read-file", "--name", "s", "--path", "main.py"])
+            result = runner.invoke(
+                skill_group, ["read-file", "--name", "s", "--path", "main.py"]
+            )
         assert result.exit_code == 0
         assert "print('hi')" in result.output
 
     def test_read_file_error(self):
         mock_loader = MagicMock()
-        mock_loader._read_skill_file_func.return_value = json.dumps({"error": "File not found"})
+        mock_loader._read_skill_file_func.return_value = json.dumps(
+            {"error": "File not found"}
+        )
 
-        with patch("agentrun.integration.utils.skill_loader.SkillLoader", return_value=mock_loader):
+        with patch(
+            "agentrun.integration.utils.skill_loader.SkillLoader",
+            return_value=mock_loader,
+        ):
             runner = CliRunner()
-            result = runner.invoke(skill_group, ["read-file", "--name", "s", "--path", "missing.py"])
+            result = runner.invoke(
+                skill_group, ["read-file", "--name", "s", "--path", "missing.py"]
+            )
         assert result.exit_code != 0
         assert "File not found" in result.output
 
@@ -455,37 +544,58 @@ class TestSkillReadFileCommand:
             {"entries": ["a.py", "b.py"]}
         )
 
-        with patch("agentrun.integration.utils.skill_loader.SkillLoader", return_value=mock_loader):
+        with patch(
+            "agentrun.integration.utils.skill_loader.SkillLoader",
+            return_value=mock_loader,
+        ):
             runner = CliRunner()
-            result = runner.invoke(skill_group, ["read-file", "--name", "s", "--path", "."])
+            result = runner.invoke(
+                skill_group, ["read-file", "--name", "s", "--path", "."]
+            )
         assert result.exit_code == 0
         assert "a.py" in result.output
 
 
 class TestSkillExecCommand:
-
     def test_exec_success(self):
         mock_loader = MagicMock()
         mock_loader._execute_command_func.return_value = json.dumps(
             {"stdout": "hello\n", "stderr": "", "exit_code": 0}
         )
 
-        with patch("agentrun.integration.utils.skill_loader.SkillLoader", return_value=mock_loader):
+        with patch(
+            "agentrun.integration.utils.skill_loader.SkillLoader",
+            return_value=mock_loader,
+        ):
             runner = CliRunner()
             with runner.isolated_filesystem():
                 os.makedirs(".skills/my-skill")
-                result = runner.invoke(skill_group, [
-                    "exec", "--name", "my-skill", "--command", "echo hello",
-                ])
+                result = runner.invoke(
+                    skill_group,
+                    [
+                        "exec",
+                        "--name",
+                        "my-skill",
+                        "--command",
+                        "echo hello",
+                    ],
+                )
         assert result.exit_code == 0
         assert "hello" in result.output
 
     def test_exec_missing_dir(self):
         runner = CliRunner()
         with runner.isolated_filesystem():
-            result = runner.invoke(skill_group, [
-                "exec", "--name", "nonexistent", "--command", "echo hi",
-            ])
+            result = runner.invoke(
+                skill_group,
+                [
+                    "exec",
+                    "--name",
+                    "nonexistent",
+                    "--command",
+                    "echo hi",
+                ],
+            )
         assert result.exit_code != 0
         assert "not found" in result.output
 
@@ -495,12 +605,25 @@ class TestSkillExecCommand:
             {"stdout": "ok\n", "stderr": "", "exit_code": 0}
         )
 
-        with patch("agentrun.integration.utils.skill_loader.SkillLoader", return_value=mock_loader):
+        with patch(
+            "agentrun.integration.utils.skill_loader.SkillLoader",
+            return_value=mock_loader,
+        ):
             runner = CliRunner()
             with runner.isolated_filesystem():
                 os.makedirs("custom-skills/my-skill")
-                result = runner.invoke(skill_group, [
-                    "exec", "--name", "my-skill", "--command", "ls",
-                    "--dir", "custom-skills", "--timeout", "60",
-                ])
+                result = runner.invoke(
+                    skill_group,
+                    [
+                        "exec",
+                        "--name",
+                        "my-skill",
+                        "--command",
+                        "ls",
+                        "--dir",
+                        "custom-skills",
+                        "--timeout",
+                        "60",
+                    ],
+                )
         assert result.exit_code == 0

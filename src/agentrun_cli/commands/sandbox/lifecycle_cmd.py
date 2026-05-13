@@ -13,9 +13,16 @@ def register_lifecycle_commands(sandbox_group: click.Group):
 
     @sandbox_group.command("create")
     @click.option("--template", "template_name", required=True, help="Template name.")
-    @click.option("--type", "sandbox_type", required=True, help="Sandbox type: CodeInterpreter / Browser / AllInOne / CustomImage.")
+    @click.option(
+        "--type",
+        "sandbox_type",
+        required=True,
+        help="Sandbox type: CodeInterpreter / Browser / AllInOne / CustomImage.",
+    )
     @click.option("--id", "sandbox_id", default=None, help="Custom sandbox ID.")
-    @click.option("--idle-timeout", type=int, default=600, help="Idle timeout (seconds).")
+    @click.option(
+        "--idle-timeout", type=int, default=600, help="Idle timeout (seconds)."
+    )
     @click.option("--nas-server-addr", default=None, help="NAS server address.")
     @click.option("--nas-mount-dir", default=None, help="NAS mount directory.")
     @click.option("--oss-bucket", default=None, help="OSS bucket name.")
@@ -23,9 +30,18 @@ def register_lifecycle_commands(sandbox_group: click.Group):
     @click.option("--from-file", "from_file", default=None, help="Path to JSON file.")
     @click.pass_context
     @handle_errors
-    def sandbox_create(ctx, template_name, sandbox_type, sandbox_id, idle_timeout,
-                       nas_server_addr, nas_mount_dir, oss_bucket, oss_mount_dir,
-                       from_file):
+    def sandbox_create(
+        ctx,
+        template_name,
+        sandbox_type,
+        sandbox_id,
+        idle_timeout,
+        nas_server_addr,
+        nas_mount_dir,
+        oss_bucket,
+        oss_mount_dir,
+        from_file,
+    ):
         """Create a sandbox instance."""
         from agentrun.sandbox import NASConfig, OSSMountConfig, Sandbox, TemplateType
 
@@ -33,6 +49,7 @@ def register_lifecycle_commands(sandbox_group: click.Group):
 
         if from_file:
             from agentrun.sandbox import SandboxInput
+
             payload = _load_json_option(from_file)
             inp = SandboxInput(**payload)
             sb = Sandbox.create(
@@ -87,7 +104,9 @@ def register_lifecycle_commands(sandbox_group: click.Group):
     @click.option("--max-results", type=int, default=10, help="Max results.")
     @click.option("--next-token", default=None, help="Pagination token.")
     @click.option("--status", default=None, help="Filter by status.")
-    @click.option("--template", "template_name", default=None, help="Filter by template name.")
+    @click.option(
+        "--template", "template_name", default=None, help="Filter by template name."
+    )
     @click.option("--type", "sandbox_type", default=None, help="Filter by type.")
     @click.pass_context
     @handle_errors
@@ -121,7 +140,11 @@ def register_lifecycle_commands(sandbox_group: click.Group):
 
         cfg = _build_cfg(ctx)
         Sandbox.stop_by_id(sandbox_id, config=cfg)
-        format_output(ctx, {"sandbox_id": sandbox_id, "status": "Stopped"}, quiet_field="sandbox_id")
+        format_output(
+            ctx,
+            {"sandbox_id": sandbox_id, "status": "Stopped"},
+            quiet_field="sandbox_id",
+        )
 
     @sandbox_group.command("delete")
     @click.argument("sandbox_id")
@@ -133,7 +156,11 @@ def register_lifecycle_commands(sandbox_group: click.Group):
 
         cfg = _build_cfg(ctx)
         Sandbox.delete_by_id(sandbox_id, config=cfg)
-        format_output(ctx, {"sandbox_id": sandbox_id, "status": "Deleted"}, quiet_field="sandbox_id")
+        format_output(
+            ctx,
+            {"sandbox_id": sandbox_id, "status": "Deleted"},
+            quiet_field="sandbox_id",
+        )
 
     @sandbox_group.command("health")
     @click.argument("sandbox_id")

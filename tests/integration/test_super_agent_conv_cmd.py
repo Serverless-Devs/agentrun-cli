@@ -19,8 +19,13 @@ def _patch_client(agent):
 
 
 def _conv_cmd_globals():
-    cmd = cli.get_command(None, "sa").get_command(None, "conv").get_command(
-        None, "list",
+    cmd = (
+        cli.get_command(None, "sa")
+        .get_command(None, "conv")
+        .get_command(
+            None,
+            "list",
+        )
     )
     callback = _unwrap_callback(cmd.callback)
     return callback.__globals__
@@ -41,14 +46,18 @@ def _unwrap_callback(callback):
 def _patch_client_cls(client):
     globals_ = _conv_cmd_globals()
     with ExitStack() as stack:
-        stack.enter_context(patch.dict(
-            globals_,
-            {"_get_client_cls": lambda: (lambda config: client)},
-        ))
-        stack.enter_context(patch(
-            "agentrun.super_agent.SuperAgentClient",
-            return_value=client,
-        ))
+        stack.enter_context(
+            patch.dict(
+                globals_,
+                {"_get_client_cls": lambda: lambda config: client},
+            )
+        )
+        stack.enter_context(
+            patch(
+                "agentrun.super_agent.SuperAgentClient",
+                return_value=client,
+            )
+        )
         yield
 
 
@@ -60,7 +69,6 @@ def _patch_sdk_cfg():
 
 
 class TestConvGet:
-
     def test_get_conversation(self):
         agent = MagicMock()
         info = SimpleNamespace(
@@ -74,8 +82,9 @@ class TestConvGet:
             error_message=None,
             invoke_info=None,
             messages=[
-                SimpleNamespace(role="user", content="hi",
-                                message_id="m1", created_at=1000),
+                SimpleNamespace(
+                    role="user", content="hi", message_id="m1", created_at=1000
+                ),
             ],
             params=None,
         )
@@ -83,9 +92,16 @@ class TestConvGet:
         client, patcher = _patch_client(agent)
         with _patch_sdk_cfg(), patcher:
             runner = CliRunner()
-            result = runner.invoke(cli, [
-                "sa", "conv", "get", "my-agent", "conv-xxx",
-            ])
+            result = runner.invoke(
+                cli,
+                [
+                    "sa",
+                    "conv",
+                    "get",
+                    "my-agent",
+                    "conv-xxx",
+                ],
+            )
         assert result.exit_code == 0, result.output
         out = json.loads(result.output)
         assert out["conversation_id"] == "conv-xxx"
@@ -94,24 +110,39 @@ class TestConvGet:
 
 
 class TestConvDelete:
-
     def test_delete_clears_matching_state(self, tmp_path):
         agent = MagicMock()
         agent.delete_conversation_async = AsyncMock(return_value=None)
         client, patcher = _patch_client(agent)
         state_file = tmp_path / "state.json"
-        state_file.write_text(json.dumps({
-            "agents": {"my-agent": {
-                "last_conversation_id": "conv-xxx",
-                "last_used_at": "2026-04-16T00:00:00Z",
-            }},
-        }))
-        with _patch_sdk_cfg(), patcher, \
-             patch("agentrun_cli._utils.super_agent_state.STATE_FILE", state_file):
+        state_file.write_text(
+            json.dumps(
+                {
+                    "agents": {
+                        "my-agent": {
+                            "last_conversation_id": "conv-xxx",
+                            "last_used_at": "2026-04-16T00:00:00Z",
+                        }
+                    },
+                }
+            )
+        )
+        with (
+            _patch_sdk_cfg(),
+            patcher,
+            patch("agentrun_cli._utils.super_agent_state.STATE_FILE", state_file),
+        ):
             runner = CliRunner()
-            result = runner.invoke(cli, [
-                "sa", "conv", "delete", "my-agent", "conv-xxx",
-            ])
+            result = runner.invoke(
+                cli,
+                [
+                    "sa",
+                    "conv",
+                    "delete",
+                    "my-agent",
+                    "conv-xxx",
+                ],
+            )
         assert result.exit_code == 0, result.output
         out = json.loads(result.output)
         assert out["deleted"] is True
@@ -123,32 +154,49 @@ class TestConvDelete:
         agent.delete_conversation_async = AsyncMock(return_value=None)
         client, patcher = _patch_client(agent)
         state_file = tmp_path / "state.json"
-        state_file.write_text(json.dumps({
-            "agents": {"my-agent": {
-                "last_conversation_id": "conv-current",
-                "last_used_at": "2026-04-16T00:00:00Z",
-            }},
-        }))
-        with _patch_sdk_cfg(), patcher, \
-             patch("agentrun_cli._utils.super_agent_state.STATE_FILE", state_file):
+        state_file.write_text(
+            json.dumps(
+                {
+                    "agents": {
+                        "my-agent": {
+                            "last_conversation_id": "conv-current",
+                            "last_used_at": "2026-04-16T00:00:00Z",
+                        }
+                    },
+                }
+            )
+        )
+        with (
+            _patch_sdk_cfg(),
+            patcher,
+            patch("agentrun_cli._utils.super_agent_state.STATE_FILE", state_file),
+        ):
             runner = CliRunner()
-            result = runner.invoke(cli, [
-                "sa", "conv", "delete", "my-agent", "conv-old",
-            ])
+            result = runner.invoke(
+                cli,
+                [
+                    "sa",
+                    "conv",
+                    "delete",
+                    "my-agent",
+                    "conv-old",
+                ],
+            )
         assert result.exit_code == 0, result.output
         remaining = json.loads(state_file.read_text())
         assert remaining["agents"]["my-agent"]["last_conversation_id"] == "conv-current"
 
 
 class TestConvList:
-
     def test_list_returns_rows(self):
         """If SDK has list_conversations_async, it should be used."""
         agent = MagicMock()
-        agent.list_conversations_async = AsyncMock(return_value=[
-            {"conversation_id": "c1", "title": "first"},
-            {"conversation_id": "c2", "title": "second"},
-        ])
+        agent.list_conversations_async = AsyncMock(
+            return_value=[
+                {"conversation_id": "c1", "title": "first"},
+                {"conversation_id": "c2", "title": "second"},
+            ]
+        )
         client, patcher = _patch_client(agent)
         with _patch_sdk_cfg(), patcher:
             runner = CliRunner()
@@ -160,8 +208,13 @@ class TestConvList:
 
     def test_list_not_implemented_fallback(self):
         """If SDK does not have list_conversations_async, return error."""
-        cmd = cli.get_command(None, "sa").get_command(None, "conv").get_command(
-            None, "list",
+        cmd = (
+            cli.get_command(None, "sa")
+            .get_command(None, "conv")
+            .get_command(
+                None,
+                "list",
+            )
         )
 
         def unavailable(name):
@@ -179,24 +232,31 @@ class TestConvList:
 
     def test_list_fallback_branch_raises_click_exception(self):
         """The command implementation fails before calling a missing SDK method."""
-        cmd = cli.get_command(None, "sa").get_command(None, "conv").get_command(
-            None, "list",
+        cmd = (
+            cli.get_command(None, "sa")
+            .get_command(None, "conv")
+            .get_command(
+                None,
+                "list",
+            )
         )
         callback = _unwrap_callback(cmd.callback)
         client = MagicMock()
         client.get.return_value = MagicMock(spec=[])
         ctx = click.Context(cmd, obj={"output": "json"})
-        with patch.dict(callback.__globals__, {
-            "build_sdk_config": MagicMock(return_value=MagicMock()),
-            "_get_client_cls": lambda: (lambda config: client),
-        }):
+        with patch.dict(
+            callback.__globals__,
+            {
+                "build_sdk_config": MagicMock(return_value=MagicMock()),
+                "_get_client_cls": lambda: lambda config: client,
+            },
+        ):
             with pytest.raises(click.ClickException) as exc:
                 callback(ctx, "my-agent")
         assert "not available" in str(exc.value).lower()
 
 
 class TestConvAlias:
-
     def test_conv_is_conversation_alias(self):
         """`ar sa conv` is a short name for `ar sa conversation`."""
         runner = CliRunner()

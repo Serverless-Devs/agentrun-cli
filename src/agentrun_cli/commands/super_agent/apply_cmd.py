@@ -20,11 +20,13 @@ def _lazy_imports():
     global SuperAgentClient, to_create_input
     if SuperAgentClient is None:
         from agentrun.super_agent import SuperAgentClient as _Cls
+
         SuperAgentClient = _Cls
     if to_create_input is None:
         from agentrun.super_agent.api.control import (
             to_create_input as _tci,
         )
+
         to_create_input = _tci
     return SuperAgentClient, to_create_input
 
@@ -33,20 +35,26 @@ def _parse_file(path: str):
     try:
         return parse_yaml_file(path)
     except YamlSchemaError as e:
-        raise click.UsageError(str(e))
+        raise click.UsageError(str(e)) from e
 
 
 # ---------------------------------------------------------------------------
 # render
 # ---------------------------------------------------------------------------
 
+
 @click.command(
     "render",
     help="Render a YAML file to the input that would be sent to the server "
-         "(no API call).",
+    "(no API call).",
 )
-@click.option("-f", "--file", "file_path", required=True,
-              help="YAML file path (supports multi-document).")
+@click.option(
+    "-f",
+    "--file",
+    "file_path",
+    required=True,
+    help="YAML file path (supports multi-document).",
+)
 @click.pass_context
 @handle_errors
 def render_cmd(ctx, file_path):
@@ -71,21 +79,22 @@ def render_cmd(ctx, file_path):
             cfg=cfg,
         )
         rendered = (
-            rt_input.model_dump()
-            if hasattr(rt_input, "model_dump")
-            else rt_input
+            rt_input.model_dump() if hasattr(rt_input, "model_dump") else rt_input
         )
-        results.append({
-            "kind": "SuperAgent",
-            "name": d.name,
-            "rendered_create_input": rendered,
-        })
+        results.append(
+            {
+                "kind": "SuperAgent",
+                "name": d.name,
+                "rendered_create_input": rendered,
+            }
+        )
     format_output(ctx, results)
 
 
 # ---------------------------------------------------------------------------
 # apply
 # ---------------------------------------------------------------------------
+
 
 def _agent_exists(client, name: str) -> bool:
     try:
@@ -130,10 +139,19 @@ def _apply_one(client, doc: ParsedSuperAgent) -> dict:
     "apply",
     help="Create or update super agents declaratively from YAML.",
 )
-@click.option("-f", "--file", "file_path", required=True,
-              help="YAML file path (supports multi-document).")
-@click.option("--dry-run", is_flag=True, default=False,
-              help="Validate and render without calling the server.")
+@click.option(
+    "-f",
+    "--file",
+    "file_path",
+    required=True,
+    help="YAML file path (supports multi-document).",
+)
+@click.option(
+    "--dry-run",
+    is_flag=True,
+    default=False,
+    help="Validate and render without calling the server.",
+)
 @click.pass_context
 @handle_errors
 def apply_cmd(ctx, file_path, dry_run):
@@ -160,16 +178,16 @@ def apply_cmd(ctx, file_path, dry_run):
                 cfg=cfg,
             )
             rendered = (
-                rt_input.model_dump()
-                if hasattr(rt_input, "model_dump")
-                else rt_input
+                rt_input.model_dump() if hasattr(rt_input, "model_dump") else rt_input
             )
-            results.append({
-                "kind": "SuperAgent",
-                "name": d.name,
-                "action": "dry-run",
-                "rendered_create_input": rendered,
-            })
+            results.append(
+                {
+                    "kind": "SuperAgent",
+                    "name": d.name,
+                    "action": "dry-run",
+                    "rendered_create_input": rendered,
+                }
+            )
         format_output(ctx, results)
         return
 

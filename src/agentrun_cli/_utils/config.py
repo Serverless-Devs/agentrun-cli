@@ -23,7 +23,7 @@ Config file structure:
 import json
 import os
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from agentrun.utils.config import Config
@@ -42,7 +42,7 @@ def load_config() -> dict:
     """Load the config file. Returns an empty structure if the file is missing."""
     if not CONFIG_FILE.exists():
         return {"profiles": {}, "defaults": {"profile": "default", "output": "json"}}
-    with open(CONFIG_FILE, "r", encoding="utf-8") as f:
+    with open(CONFIG_FILE, encoding="utf-8") as f:
         return json.load(f)
 
 
@@ -54,14 +54,14 @@ def save_config(config: dict) -> None:
         f.write("\n")
 
 
-def get_profile(profile_name: Optional[str] = None) -> dict:
+def get_profile(profile_name: str | None = None) -> dict:
     """Return the settings dict for the given profile (or the default one)."""
     config = load_config()
     name = profile_name or config.get("defaults", {}).get("profile", "default")
     return config.get("profiles", {}).get(name, {})
 
 
-def set_profile_value(key: str, value: str, profile_name: Optional[str] = None) -> None:
+def set_profile_value(key: str, value: str, profile_name: str | None = None) -> None:
     """Set a single key inside a profile and save."""
     config = load_config()
     name = profile_name or config.get("defaults", {}).get("profile", "default")
@@ -69,12 +69,12 @@ def set_profile_value(key: str, value: str, profile_name: Optional[str] = None) 
     save_config(config)
 
 
-def get_profile_value(key: str, profile_name: Optional[str] = None) -> Optional[str]:
+def get_profile_value(key: str, profile_name: str | None = None) -> str | None:
     """Read a single key from the active profile."""
     return get_profile(profile_name).get(key)
 
 
-def _env(*names: str) -> Optional[str]:
+def _env(*names: str) -> str | None:
     """Return the first non-empty env var value, or None."""
     for name in names:
         val = os.getenv(name)
@@ -84,8 +84,8 @@ def _env(*names: str) -> Optional[str]:
 
 
 def build_sdk_config(
-    profile_name: Optional[str] = None,
-    region: Optional[str] = None,
+    profile_name: str | None = None,
+    region: str | None = None,
 ) -> "Config":
     """Build an ``agentrun.utils.config.Config`` from CLI context.
 
@@ -101,28 +101,35 @@ def build_sdk_config(
 
     profile = get_profile(profile_name)
 
-    ak = (profile.get("access_key_id")
-          or _env("AGENTRUN_ACCESS_KEY_ID", "ALIBABA_CLOUD_ACCESS_KEY_ID")
-          or None)
-    sk = (profile.get("access_key_secret")
-          or _env("AGENTRUN_ACCESS_KEY_SECRET", "ALIBABA_CLOUD_ACCESS_KEY_SECRET")
-          or None)
-    token = (profile.get("security_token")
-             or _env("AGENTRUN_SECURITY_TOKEN", "ALIBABA_CLOUD_SECURITY_TOKEN")
-             or None)
-    account = (profile.get("account_id")
-               or _env("AGENTRUN_ACCOUNT_ID", "FC_ACCOUNT_ID")
-               or None)
-    rid = (region
-           or profile.get("region")
-           or _env("AGENTRUN_REGION", "FC_REGION")
-           or None)
-    control_endpoint = (profile.get("control_endpoint")
-                        or _env("AGENTRUN_CONTROL_ENDPOINT")
-                        or None)
-    data_endpoint = (profile.get("data_endpoint")
-                     or _env("AGENTRUN_DATA_ENDPOINT")
-                     or None)
+    ak = (
+        profile.get("access_key_id")
+        or _env("AGENTRUN_ACCESS_KEY_ID", "ALIBABA_CLOUD_ACCESS_KEY_ID")
+        or None
+    )
+    sk = (
+        profile.get("access_key_secret")
+        or _env("AGENTRUN_ACCESS_KEY_SECRET", "ALIBABA_CLOUD_ACCESS_KEY_SECRET")
+        or None
+    )
+    token = (
+        profile.get("security_token")
+        or _env("AGENTRUN_SECURITY_TOKEN", "ALIBABA_CLOUD_SECURITY_TOKEN")
+        or None
+    )
+    account = (
+        profile.get("account_id")
+        or _env("AGENTRUN_ACCOUNT_ID", "FC_ACCOUNT_ID")
+        or None
+    )
+    rid = (
+        region or profile.get("region") or _env("AGENTRUN_REGION", "FC_REGION") or None
+    )
+    control_endpoint = (
+        profile.get("control_endpoint") or _env("AGENTRUN_CONTROL_ENDPOINT") or None
+    )
+    data_endpoint = (
+        profile.get("data_endpoint") or _env("AGENTRUN_DATA_ENDPOINT") or None
+    )
 
     # Propagate resolved values to env vars so that SDK-internal Config()
     # instances (created without explicit config) also pick them up.

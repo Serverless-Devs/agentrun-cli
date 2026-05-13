@@ -15,15 +15,33 @@ def _mock_sandbox_modules():
 
     # TemplateType as identity function
     mock_sandbox_mod.TemplateType = MagicMock(side_effect=lambda x: x)
-    mock_sandbox_mod.TemplateInput = MagicMock(side_effect=lambda **kw: SimpleNamespace(**kw))
-    mock_sandbox_mod.PageableInput = MagicMock(side_effect=lambda **kw: SimpleNamespace(**kw))
-    mock_sandbox_mod.ListSandboxesInput = MagicMock(side_effect=lambda **kw: SimpleNamespace(**kw))
-    mock_sandbox_mod.SandboxInput = MagicMock(side_effect=lambda **kw: SimpleNamespace(**kw))
-    mock_sandbox_mod.NASConfig = MagicMock(side_effect=lambda **kw: SimpleNamespace(**kw))
-    mock_sandbox_mod.OSSMountConfig = MagicMock(side_effect=lambda **kw: SimpleNamespace(**kw))
-    mock_sandbox_mod.TemplateNetworkConfiguration = MagicMock(side_effect=lambda **kw: SimpleNamespace(**kw))
-    mock_sandbox_mod.TemplateCredentialConfiguration = MagicMock(side_effect=lambda **kw: SimpleNamespace(**kw))
-    mock_sandbox_mod.TemplateContainerConfiguration = MagicMock(side_effect=lambda **kw: SimpleNamespace(**kw))
+    mock_sandbox_mod.TemplateInput = MagicMock(
+        side_effect=lambda **kw: SimpleNamespace(**kw)
+    )
+    mock_sandbox_mod.PageableInput = MagicMock(
+        side_effect=lambda **kw: SimpleNamespace(**kw)
+    )
+    mock_sandbox_mod.ListSandboxesInput = MagicMock(
+        side_effect=lambda **kw: SimpleNamespace(**kw)
+    )
+    mock_sandbox_mod.SandboxInput = MagicMock(
+        side_effect=lambda **kw: SimpleNamespace(**kw)
+    )
+    mock_sandbox_mod.NASConfig = MagicMock(
+        side_effect=lambda **kw: SimpleNamespace(**kw)
+    )
+    mock_sandbox_mod.OSSMountConfig = MagicMock(
+        side_effect=lambda **kw: SimpleNamespace(**kw)
+    )
+    mock_sandbox_mod.TemplateNetworkConfiguration = MagicMock(
+        side_effect=lambda **kw: SimpleNamespace(**kw)
+    )
+    mock_sandbox_mod.TemplateCredentialConfiguration = MagicMock(
+        side_effect=lambda **kw: SimpleNamespace(**kw)
+    )
+    mock_sandbox_mod.TemplateContainerConfiguration = MagicMock(
+        side_effect=lambda **kw: SimpleNamespace(**kw)
+    )
 
     return mock_sandbox_mod
 
@@ -64,16 +82,20 @@ def _make_sandbox_obj(**overrides):
 
 
 def _patch_sdk(mock_mod):
-    return patch.dict("sys.modules", {
-        "agentrun": MagicMock(),
-        "agentrun.sandbox": mock_mod,
-        "agentrun.utils": MagicMock(),
-        "agentrun.utils.config": MagicMock(Config=MagicMock(return_value=MagicMock())),
-    })
+    return patch.dict(
+        "sys.modules",
+        {
+            "agentrun": MagicMock(),
+            "agentrun.sandbox": mock_mod,
+            "agentrun.utils": MagicMock(),
+            "agentrun.utils.config": MagicMock(
+                Config=MagicMock(return_value=MagicMock())
+            ),
+        },
+    )
 
 
 class TestSandboxHelp:
-
     def test_sandbox_help(self):
         runner = CliRunner()
         result = runner.invoke(cli, ["sandbox", "--help"])
@@ -91,24 +113,36 @@ class TestSandboxHelp:
 
     def test_sub_group_aliases(self):
         runner = CliRunner()
-        for alias, full in [("tpl", "template"), ("ctx", "context"), ("f", "file"), ("ps", "process"), ("br", "browser")]:
+        for alias, _full in [
+            ("tpl", "template"),
+            ("ctx", "context"),
+            ("f", "file"),
+            ("ps", "process"),
+            ("br", "browser"),
+        ]:
             result = runner.invoke(cli, ["sb", alias, "--help"])
             assert result.exit_code == 0, f"Alias {alias} failed: {result.output}"
 
 
 class TestTemplateCommands:
-
     def test_template_create(self):
         mock_mod = _mock_sandbox_modules()
         tpl = _make_template_obj()
         mock_mod.Sandbox.create_template.return_value = tpl
         with _patch_sdk(mock_mod):
             runner = CliRunner()
-            result = runner.invoke(cli, [
-                "sandbox", "template", "create",
-                "--type", "CodeInterpreter",
-                "--name", "test-tpl",
-            ])
+            result = runner.invoke(
+                cli,
+                [
+                    "sandbox",
+                    "template",
+                    "create",
+                    "--type",
+                    "CodeInterpreter",
+                    "--name",
+                    "test-tpl",
+                ],
+            )
             assert result.exit_code == 0, result.output
             data = json.loads(result.output)
             assert data["template_name"] == "test-tpl"
@@ -126,7 +160,10 @@ class TestTemplateCommands:
 
     def test_template_list(self):
         mock_mod = _mock_sandbox_modules()
-        mock_mod.Sandbox.list_templates.return_value = [_make_template_obj(), _make_template_obj(template_name="tpl2")]
+        mock_mod.Sandbox.list_templates.return_value = [
+            _make_template_obj(),
+            _make_template_obj(template_name="tpl2"),
+        ]
         with _patch_sdk(mock_mod):
             runner = CliRunner()
             result = runner.invoke(cli, ["sandbox", "template", "list"])
@@ -137,14 +174,23 @@ class TestTemplateCommands:
     def test_template_list_with_type_filter(self):
         """--type should be propagated into PageableInput."""
         mock_mod = _mock_sandbox_modules()
-        mock_mod.Sandbox.list_templates.return_value = [_make_template_obj(template_type="Browser")]
+        mock_mod.Sandbox.list_templates.return_value = [
+            _make_template_obj(template_type="Browser")
+        ]
         with _patch_sdk(mock_mod):
             runner = CliRunner()
-            result = runner.invoke(cli, [
-                "sandbox", "template", "list",
-                "--type", "Browser",
-                "--page-size", "5",
-            ])
+            result = runner.invoke(
+                cli,
+                [
+                    "sandbox",
+                    "template",
+                    "list",
+                    "--type",
+                    "Browser",
+                    "--page-size",
+                    "5",
+                ],
+            )
             assert result.exit_code == 0, result.output
 
         call_kwargs = mock_mod.PageableInput.call_args.kwargs
@@ -158,10 +204,17 @@ class TestTemplateCommands:
         mock_mod.Sandbox.update_template.return_value = _make_template_obj(cpu=4.0)
         with _patch_sdk(mock_mod):
             runner = CliRunner()
-            result = runner.invoke(cli, [
-                "sandbox", "template", "update", "test-tpl",
-                "--cpu", "4",
-            ])
+            result = runner.invoke(
+                cli,
+                [
+                    "sandbox",
+                    "template",
+                    "update",
+                    "test-tpl",
+                    "--cpu",
+                    "4",
+                ],
+            )
             assert result.exit_code == 0, result.output
 
     def test_template_delete(self):
@@ -179,30 +232,46 @@ class TestTemplateCommands:
         tpl = _make_template_obj()
         mock_mod.Sandbox.create_template.return_value = tpl
         f = tmp_path / "tpl.json"
-        f.write_text(json.dumps({"template_type": "CodeInterpreter", "template_name": "from-file"}))
+        f.write_text(
+            json.dumps(
+                {"template_type": "CodeInterpreter", "template_name": "from-file"}
+            )
+        )
         with _patch_sdk(mock_mod):
             runner = CliRunner()
-            result = runner.invoke(cli, [
-                "sandbox", "template", "create",
-                "--type", "CodeInterpreter",
-                "--from-file", str(f),
-            ])
+            result = runner.invoke(
+                cli,
+                [
+                    "sandbox",
+                    "template",
+                    "create",
+                    "--type",
+                    "CodeInterpreter",
+                    "--from-file",
+                    str(f),
+                ],
+            )
             assert result.exit_code == 0, result.output
 
 
 class TestLifecycleCommands:
-
     def test_sandbox_create(self):
         mock_mod = _mock_sandbox_modules()
         sb = _make_sandbox_obj()
         mock_mod.Sandbox.create.return_value = sb
         with _patch_sdk(mock_mod):
             runner = CliRunner()
-            result = runner.invoke(cli, [
-                "sandbox", "create",
-                "--template", "test-tpl",
-                "--type", "CodeInterpreter",
-            ])
+            result = runner.invoke(
+                cli,
+                [
+                    "sandbox",
+                    "create",
+                    "--template",
+                    "test-tpl",
+                    "--type",
+                    "CodeInterpreter",
+                ],
+            )
             assert result.exit_code == 0, result.output
             data = json.loads(result.output)
             assert data["sandbox_id"] == "sb-xxx"
@@ -267,18 +336,27 @@ class TestLifecycleCommands:
 
 
 class TestExecCommands:
-
     def test_exec_with_code(self):
         mock_mod = _mock_sandbox_modules()
         sb = _make_sandbox_obj()
-        sb.context.execute.return_value = {"output": "hello\n", "error": "", "exit_code": 0}
+        sb.context.execute.return_value = {
+            "output": "hello\n",
+            "error": "",
+            "exit_code": 0,
+        }
         mock_mod.Sandbox.connect.return_value = sb
         with _patch_sdk(mock_mod):
             runner = CliRunner()
-            result = runner.invoke(cli, [
-                "sandbox", "exec", "sb-xxx",
-                "--code", "print('hello')",
-            ])
+            result = runner.invoke(
+                cli,
+                [
+                    "sandbox",
+                    "exec",
+                    "sb-xxx",
+                    "--code",
+                    "print('hello')",
+                ],
+            )
             assert result.exit_code == 0, result.output
             data = json.loads(result.output)
             assert data["output"] == "hello\n"
@@ -295,11 +373,18 @@ class TestExecCommands:
         mock_mod.Sandbox.connect.return_value = sb
         with _patch_sdk(mock_mod):
             runner = CliRunner()
-            result = runner.invoke(cli, [
-                "sandbox", "exec", "sb-xxx",
-                "--code", "print('x')",
-                "--context-id", "ctx-1",
-            ])
+            result = runner.invoke(
+                cli,
+                [
+                    "sandbox",
+                    "exec",
+                    "sb-xxx",
+                    "--code",
+                    "print('x')",
+                    "--context-id",
+                    "ctx-1",
+                ],
+            )
             assert result.exit_code == 0, result.output
 
         call_kwargs = sb.context.execute.call_args.kwargs
@@ -312,12 +397,20 @@ class TestExecCommands:
         mock_mod.Sandbox.connect.return_value = sb
         with _patch_sdk(mock_mod):
             runner = CliRunner()
-            result = runner.invoke(cli, [
-                "sandbox", "exec", "sb-xxx",
-                "--code", "print('x')",
-                "--context-id", "ctx-1",
-                "--language", "python",
-            ])
+            result = runner.invoke(
+                cli,
+                [
+                    "sandbox",
+                    "exec",
+                    "sb-xxx",
+                    "--code",
+                    "print('x')",
+                    "--context-id",
+                    "ctx-1",
+                    "--language",
+                    "python",
+                ],
+            )
             assert result.exit_code != 0
             assert "mutually exclusive" in result.output.lower()
 
@@ -328,18 +421,24 @@ class TestExecCommands:
         mock_mod.Sandbox.connect.return_value = sb
         with _patch_sdk(mock_mod):
             runner = CliRunner()
-            result = runner.invoke(cli, [
-                "sandbox", "cmd", "sb-xxx",
-                "--command", "echo ok",
-                "--cwd", "/home/user",
-            ])
+            result = runner.invoke(
+                cli,
+                [
+                    "sandbox",
+                    "cmd",
+                    "sb-xxx",
+                    "--command",
+                    "echo ok",
+                    "--cwd",
+                    "/home/user",
+                ],
+            )
             assert result.exit_code == 0, result.output
             data = json.loads(result.output)
             assert data["stdout"] == "ok\n"
 
 
 class TestContextCommands:
-
     def test_context_create(self):
         """SDK returns a ContextOperations-like object; CLI must flatten it."""
         mock_mod = _mock_sandbox_modules()
@@ -353,7 +452,9 @@ class TestContextCommands:
         mock_mod.Sandbox.connect.return_value = sb
         with _patch_sdk(mock_mod):
             runner = CliRunner()
-            result = runner.invoke(cli, ["sandbox", "context", "create", "sb-xxx", "--cwd", "/workspace"])
+            result = runner.invoke(
+                cli, ["sandbox", "context", "create", "sb-xxx", "--cwd", "/workspace"]
+            )
             assert result.exit_code == 0, result.output
             data = json.loads(result.output)
             assert data["id"] == "ctx-xxx"
@@ -396,14 +497,15 @@ class TestContextCommands:
         mock_mod.Sandbox.connect.return_value = sb
         with _patch_sdk(mock_mod):
             runner = CliRunner()
-            result = runner.invoke(cli, ["sandbox", "ctx", "delete", "sb-xxx", "ctx-xxx"])
+            result = runner.invoke(
+                cli, ["sandbox", "ctx", "delete", "sb-xxx", "ctx-xxx"]
+            )
             assert result.exit_code == 0, result.output
             data = json.loads(result.output)
             assert data["deleted"] is True
 
 
 class TestFileCommands:
-
     def _setup(self):
         mock_mod = _mock_sandbox_modules()
         sb = _make_sandbox_obj()
@@ -415,7 +517,9 @@ class TestFileCommands:
         sb.file.read.return_value = {"path": "/test.txt", "content": "hello"}
         with _patch_sdk(mock_mod):
             runner = CliRunner()
-            result = runner.invoke(cli, ["sandbox", "file", "read", "sb-xxx", "/test.txt"])
+            result = runner.invoke(
+                cli, ["sandbox", "file", "read", "sb-xxx", "/test.txt"]
+            )
             assert result.exit_code == 0, result.output
 
     def test_file_write(self):
@@ -423,7 +527,10 @@ class TestFileCommands:
         sb.file.write.return_value = {"path": "/test.txt", "size": 5, "success": True}
         with _patch_sdk(mock_mod):
             runner = CliRunner()
-            result = runner.invoke(cli, ["sandbox", "f", "write", "sb-xxx", "/test.txt", "--content", "hello"])
+            result = runner.invoke(
+                cli,
+                ["sandbox", "f", "write", "sb-xxx", "/test.txt", "--content", "hello"],
+            )
             assert result.exit_code == 0, result.output
 
     def test_file_upload(self, tmp_path):
@@ -434,7 +541,9 @@ class TestFileCommands:
         local_file.write_text("a,b\n1,2")
         with _patch_sdk(mock_mod):
             runner = CliRunner()
-            result = runner.invoke(cli, ["sandbox", "f", "upload", "sb-xxx", str(local_file), "/data.csv"])
+            result = runner.invoke(
+                cli, ["sandbox", "f", "upload", "sb-xxx", str(local_file), "/data.csv"]
+            )
             assert result.exit_code == 0, result.output
 
         call_kwargs = sb.file_system.upload.call_args.kwargs
@@ -448,7 +557,9 @@ class TestFileCommands:
         sb.file_system.download.return_value = {"saved_path": "./out.txt", "size": 10}
         with _patch_sdk(mock_mod):
             runner = CliRunner()
-            result = runner.invoke(cli, ["sandbox", "f", "download", "sb-xxx", "/remote.txt", "./out.txt"])
+            result = runner.invoke(
+                cli, ["sandbox", "f", "download", "sb-xxx", "/remote.txt", "./out.txt"]
+            )
             assert result.exit_code == 0, result.output
 
     def test_file_ls(self):
@@ -461,7 +572,11 @@ class TestFileCommands:
 
     def test_file_stat(self):
         mock_mod, sb = self._setup()
-        sb.file_system.stat.return_value = {"path": "/test.txt", "type": "file", "size": 5}
+        sb.file_system.stat.return_value = {
+            "path": "/test.txt",
+            "type": "file",
+            "size": 5,
+        }
         with _patch_sdk(mock_mod):
             runner = CliRunner()
             result = runner.invoke(cli, ["sandbox", "f", "stat", "sb-xxx", "/test.txt"])
@@ -472,7 +587,9 @@ class TestFileCommands:
         sb.file_system.move.return_value = {"success": True}
         with _patch_sdk(mock_mod):
             runner = CliRunner()
-            result = runner.invoke(cli, ["sandbox", "f", "mv", "sb-xxx", "/old.txt", "/new.txt"])
+            result = runner.invoke(
+                cli, ["sandbox", "f", "mv", "sb-xxx", "/old.txt", "/new.txt"]
+            )
             assert result.exit_code == 0, result.output
 
     def test_file_rm(self):
@@ -493,7 +610,6 @@ class TestFileCommands:
 
 
 class TestProcessCommands:
-
     def test_process_list(self):
         mock_mod = _mock_sandbox_modules()
         sb = _make_sandbox_obj()
@@ -534,7 +650,9 @@ class TestProcessCommands:
         mock_mod.Sandbox.connect.return_value = sb
         with _patch_sdk(mock_mod):
             runner = CliRunner()
-            result = runner.invoke(cli, ["sandbox", "ps", "kill", "sb-xxx", "128", "--force-shell"])
+            result = runner.invoke(
+                cli, ["sandbox", "ps", "kill", "sb-xxx", "128", "--force-shell"]
+            )
             assert result.exit_code == 0, result.output
             data = json.loads(result.output)
             assert data["pid"] == "128"
@@ -548,7 +666,6 @@ class TestProcessCommands:
 
 
 class TestBrowserCommands:
-
     def test_cdp_url(self):
         mock_mod = _mock_sandbox_modules()
         sb = _make_sandbox_obj()
@@ -564,11 +681,16 @@ class TestBrowserCommands:
     def test_cdp_url_with_headers(self):
         mock_mod = _mock_sandbox_modules()
         sb = _make_sandbox_obj()
-        sb.get_cdp_url.return_value = ("wss://example.com/cdp", {"Authorization": "Bearer xxx"})
+        sb.get_cdp_url.return_value = (
+            "wss://example.com/cdp",
+            {"Authorization": "Bearer xxx"},
+        )
         mock_mod.Sandbox.connect.return_value = sb
         with _patch_sdk(mock_mod):
             runner = CliRunner()
-            result = runner.invoke(cli, ["sandbox", "br", "cdp-url", "sb-xxx", "--with-headers"])
+            result = runner.invoke(
+                cli, ["sandbox", "br", "cdp-url", "sb-xxx", "--with-headers"]
+            )
             assert result.exit_code == 0, result.output
             data = json.loads(result.output)
             assert "headers" in data
@@ -599,7 +721,9 @@ class TestBrowserCommands:
         mock_mod.Sandbox.connect.return_value = sb
         with _patch_sdk(mock_mod):
             runner = CliRunner()
-            result = runner.invoke(cli, ["sandbox", "br", "navigate", "sb-xxx", "https://example.com"])
+            result = runner.invoke(
+                cli, ["sandbox", "br", "navigate", "sb-xxx", "https://example.com"]
+            )
             assert result.exit_code == 0, result.output
             data = json.loads(result.output)
             assert data["title"] == "Example"

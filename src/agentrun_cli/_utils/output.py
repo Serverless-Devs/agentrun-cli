@@ -8,8 +8,8 @@ Supports four modes controlled by the global ``--output`` flag:
 """
 
 import json
-import sys
-from typing import Any, List, Optional, Sequence
+from collections.abc import Sequence
+from typing import Any
 
 import click
 
@@ -19,7 +19,7 @@ def echo_json(data: Any) -> None:
     click.echo(json.dumps(data, indent=2, ensure_ascii=False, default=str))
 
 
-def echo_table(rows: Sequence[dict], columns: Optional[List[str]] = None) -> None:
+def echo_table(rows: Sequence[dict], columns: list[str] | None = None) -> None:
     """Render a list of dicts as a rich table.
 
     Falls back to JSON if ``rich`` is unavailable.
@@ -44,7 +44,7 @@ def echo_table(rows: Sequence[dict], columns: Optional[List[str]] = None) -> Non
     Console().print(table)
 
 
-def echo_quiet(data: Any, field: Optional[str] = None) -> None:
+def echo_quiet(data: Any, field: str | None = None) -> None:
     """Print only the most relevant value — useful for shell pipelines.
 
     Heuristic for picking the value:
@@ -68,7 +68,9 @@ def echo_quiet(data: Any, field: Optional[str] = None) -> None:
     click.echo(str(data))
 
 
-def format_output(ctx: click.Context, data: Any, quiet_field: Optional[str] = None) -> None:
+def format_output(
+    ctx: click.Context, data: Any, quiet_field: str | None = None
+) -> None:
     """Route *data* to the appropriate formatter based on ``ctx.obj["output"]``."""
     fmt = (ctx.obj or {}).get("output", "json")
 
@@ -92,7 +94,7 @@ def format_output(ctx: click.Context, data: Any, quiet_field: Optional[str] = No
         echo_json(data)
 
 
-def echo_error(error_type: str, message: str, hint: Optional[str] = None) -> None:
+def echo_error(error_type: str, message: str, hint: str | None = None) -> None:
     """Write a structured JSON error to stderr.
 
     When *hint* is provided it is included as a ``hint`` field in the JSON

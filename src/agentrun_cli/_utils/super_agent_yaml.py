@@ -22,7 +22,6 @@ Schema (k8s-style)::
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import List, Optional
 
 import yaml
 
@@ -37,18 +36,18 @@ class YamlSchemaError(ValueError):
 @dataclass
 class ParsedSuperAgent:
     name: str
-    description: Optional[str] = None
-    prompt: Optional[str] = None
-    model_service_name: Optional[str] = None
-    model_name: Optional[str] = None
-    tools: List[str] = field(default_factory=list)
-    skills: List[str] = field(default_factory=list)
-    sandboxes: List[str] = field(default_factory=list)
-    workspaces: List[str] = field(default_factory=list)
-    sub_agents: List[str] = field(default_factory=list)
+    description: str | None = None
+    prompt: str | None = None
+    model_service_name: str | None = None
+    model_name: str | None = None
+    tools: list[str] = field(default_factory=list)
+    skills: list[str] = field(default_factory=list)
+    sandboxes: list[str] = field(default_factory=list)
+    workspaces: list[str] = field(default_factory=list)
+    sub_agents: list[str] = field(default_factory=list)
 
 
-def parse_yaml_text(text: str) -> List[ParsedSuperAgent]:
+def parse_yaml_text(text: str) -> list[ParsedSuperAgent]:
     """Parse multi-doc YAML and validate each document."""
     try:
         raw_docs = list(yaml.safe_load_all(text))
@@ -59,7 +58,7 @@ def parse_yaml_text(text: str) -> List[ParsedSuperAgent]:
     if not raw_docs:
         raise YamlSchemaError("No documents found in YAML input.")
 
-    results: List[ParsedSuperAgent] = []
+    results: list[ParsedSuperAgent] = []
     for idx, doc in enumerate(raw_docs):
         try:
             results.append(_validate_doc(doc))
@@ -68,8 +67,8 @@ def parse_yaml_text(text: str) -> List[ParsedSuperAgent]:
     return results
 
 
-def parse_yaml_file(path: str) -> List[ParsedSuperAgent]:
-    with open(path, "r", encoding="utf-8") as f:
+def parse_yaml_file(path: str) -> list[ParsedSuperAgent]:
+    with open(path, encoding="utf-8") as f:
         return parse_yaml_text(f.read())
 
 
@@ -95,9 +94,7 @@ def _validate_doc(doc) -> ParsedSuperAgent:
         raise YamlSchemaError("metadata must be a mapping.")
     name = metadata.get("name")
     if not name or not isinstance(name, str):
-        raise YamlSchemaError(
-            "metadata.name is required and must be a string."
-        )
+        raise YamlSchemaError("metadata.name is required and must be a string.")
     description = metadata.get("description")
 
     spec = doc.get("spec") or {}

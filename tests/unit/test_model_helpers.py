@@ -1,4 +1,4 @@
-"""Unit tests for model_cmd helper functions — _serialize_model_service, _load_json_option."""
+"""Unit tests for model_cmd helper functions."""
 
 from types import SimpleNamespace
 from unittest.mock import MagicMock
@@ -24,7 +24,6 @@ def _make_mock_service(**overrides):
 
 
 class TestSerializeModelService:
-
     def test_with_provider_settings_and_configs(self):
         mock_settings = MagicMock()
         mock_settings.model_dump.return_value = {"api_key": "sk-xxx"}
@@ -42,7 +41,6 @@ class TestSerializeModelService:
 
 
 class TestLoadJsonOption:
-
     def test_none_input(self):
         assert _load_json_option(None) is None
 

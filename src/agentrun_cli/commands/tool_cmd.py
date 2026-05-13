@@ -15,7 +15,6 @@ Examples::
 """
 
 import json
-from typing import Optional
 
 import click
 
@@ -24,10 +23,10 @@ from agentrun_cli._utils.error import handle_errors
 from agentrun_cli._utils.inner_client import get_agentrun_client
 from agentrun_cli._utils.output import format_output
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _ctx_cfg(ctx):
     return (ctx.obj or {}).get("profile"), (ctx.obj or {}).get("region")
@@ -36,16 +35,21 @@ def _ctx_cfg(ctx):
 def _serialize_tool(t) -> dict:
     """Convert an inner SDK Tool object to a plain dict."""
     return {
-        k: v for k, v in {
+        k: v
+        for k, v in {
             "tool_id": getattr(t, "tool_id", None),
             "tool_name": getattr(t, "tool_name", None) or getattr(t, "name", None),
             "tool_type": getattr(t, "tool_type", None),
             "create_method": getattr(t, "create_method", None),
             "status": getattr(t, "status", None),
             "description": getattr(t, "description", None),
-            "created_at": getattr(t, "created_at", None) or getattr(t, "created_time", None),
-            "updated_at": getattr(t, "updated_at", None) or getattr(t, "last_updated_at", None) or getattr(t, "last_modified_time", None),
-        }.items() if v is not None
+            "created_at": getattr(t, "created_at", None)
+            or getattr(t, "created_time", None),
+            "updated_at": getattr(t, "updated_at", None)
+            or getattr(t, "last_updated_at", None)
+            or getattr(t, "last_modified_time", None),
+        }.items()
+        if v is not None
     }
 
 
@@ -53,8 +57,14 @@ def _serialize_tool_detail(t) -> dict:
     """Convert an inner SDK Tool object to a detailed dict."""
     base = _serialize_tool(t)
     extras = {}
-    for field in ("protocol_spec", "memory", "timeout", "credential_name",
-                  "environment_variables", "data_endpoint"):
+    for field in (
+        "protocol_spec",
+        "memory",
+        "timeout",
+        "credential_name",
+        "environment_variables",
+        "data_endpoint",
+    ):
         val = getattr(t, field, None)
         if val is not None:
             extras[field] = val
@@ -72,11 +82,11 @@ def _serialize_tool_detail(t) -> dict:
     return base
 
 
-def _load_json_option(raw: Optional[str]) -> Optional[dict]:
+def _load_json_option(raw: str | None) -> dict | None:
     if raw is None:
         return None
     if not raw.strip().startswith("{"):
-        with open(raw, "r", encoding="utf-8") as f:
+        with open(raw, encoding="utf-8") as f:
             return json.load(f)
     return json.loads(raw)
 
@@ -85,13 +95,18 @@ def _serialize_tool_info(ti) -> dict:
     """Convert a ToolInfo to a plain dict."""
     d = {"name": ti.name, "description": ti.description}
     if ti.parameters:
-        d["parameters"] = ti.parameters.to_json_schema() if hasattr(ti.parameters, "to_json_schema") else str(ti.parameters)
+        d["parameters"] = (
+            ti.parameters.to_json_schema()
+            if hasattr(ti.parameters, "to_json_schema")
+            else str(ti.parameters)
+        )
     return d
 
 
 # ---------------------------------------------------------------------------
 # Top-level group
 # ---------------------------------------------------------------------------
+
 
 @click.group("tool", help="Manage MCP and FunctionCall tools.")
 def tool_group():
@@ -102,28 +117,75 @@ def tool_group():
 # CRUD
 # ===========================================================================
 
+
 @tool_group.command("create")
 @click.option("--name", "tool_name", required=True, help="Unique tool name.")
-@click.option("--tool-type", "tool_type", required=True, help="Tool type: MCP or FUNCTIONCALL.")
-@click.option("--create-method", "create_method", required=True, help="MCP_REMOTE / MCP_BUNDLE / CODE_PACKAGE / OPENAPI_IMPORT.")
+@click.option(
+    "--tool-type", "tool_type", required=True, help="Tool type: MCP or FUNCTIONCALL."
+)
+@click.option(
+    "--create-method",
+    "create_method",
+    required=True,
+    help="MCP_REMOTE / MCP_BUNDLE / CODE_PACKAGE / OPENAPI_IMPORT.",
+)
 @click.option("--description", default=None, help="Tool description.")
-@click.option("--protocol-spec", "protocol_spec", default=None, help="Protocol spec JSON string or file path.")
-@click.option("--proxy-enabled/--no-proxy-enabled", "proxy_enabled", default=None, help="Enable MCP proxy (MCP_REMOTE only).")
-@click.option("--session-affinity", default=None, help="Session affinity: MCP_SSE / MCP_STREAMABLE.")
-@click.option("--image", default=None, help="Container image (MCP_BUNDLE / CODE_PACKAGE).")
+@click.option(
+    "--protocol-spec",
+    "protocol_spec",
+    default=None,
+    help="Protocol spec JSON string or file path.",
+)
+@click.option(
+    "--proxy-enabled/--no-proxy-enabled",
+    "proxy_enabled",
+    default=None,
+    help="Enable MCP proxy (MCP_REMOTE only).",
+)
+@click.option(
+    "--session-affinity",
+    default=None,
+    help="Session affinity: MCP_SSE / MCP_STREAMABLE.",
+)
+@click.option(
+    "--image", default=None, help="Container image (MCP_BUNDLE / CODE_PACKAGE)."
+)
 @click.option("--port", type=int, default=None, help="Container port.")
 @click.option("--command", default=None, help="Startup command.")
 @click.option("--timeout", type=int, default=None, help="Timeout in seconds.")
 @click.option("--memory", type=int, default=None, help="Memory in MB.")
 @click.option("--cpu", type=float, default=None, help="CPU cores.")
 @click.option("--credential", "credential_name", default=None, help="Credential name.")
-@click.option("--env", multiple=True, help="Environment variable (key=value), repeatable.")
-@click.option("--from-file", "from_file", default=None, help="JSON file with full CreateToolInputV2.")
+@click.option(
+    "--env", multiple=True, help="Environment variable (key=value), repeatable."
+)
+@click.option(
+    "--from-file",
+    "from_file",
+    default=None,
+    help="JSON file with full CreateToolInputV2.",
+)
 @click.pass_context
 @handle_errors
-def tool_create(ctx, tool_name, tool_type, create_method, description, protocol_spec,
-                proxy_enabled, session_affinity, image, port, command, timeout, memory,
-                cpu, credential_name, env, from_file):
+def tool_create(
+    ctx,
+    tool_name,
+    tool_type,
+    create_method,
+    description,
+    protocol_spec,
+    proxy_enabled,
+    session_affinity,
+    image,
+    port,
+    command,
+    timeout,
+    memory,
+    cpu,
+    credential_name,
+    env,
+    from_file,
+):
     """Create a new tool (MCP or FunctionCall)."""
     from alibabacloud_agentrun20250910 import models
 
@@ -145,7 +207,9 @@ def tool_create(ctx, tool_name, tool_type, create_method, description, protocol_
         if image:
             cmd_list = command.split() if command else None
             container_cfg = models.ContainerConfiguration(
-                image=image, port=port, command=cmd_list,
+                image=image,
+                port=port,
+                command=cmd_list,
             )
 
         # MCP config
@@ -182,7 +246,9 @@ def tool_create(ctx, tool_name, tool_type, create_method, description, protocol_
     request = models.CreateToolRequest(body=inp)
     resp = client.create_tool_with_options(request, headers, runtime)
     data = resp.body.data
-    result = _serialize_tool(data) if data else {"tool_name": tool_name, "status": "created"}
+    result = (
+        _serialize_tool(data) if data else {"tool_name": tool_name, "status": "created"}
+    )
     format_output(ctx, result, quiet_field="tool_name")
 
 
@@ -201,7 +267,9 @@ def tool_get(ctx, tool_name):
 
 
 @tool_group.command("list")
-@click.option("--tool-type", "tool_type", default=None, help="Filter: MCP / FUNCTIONCALL.")
+@click.option(
+    "--tool-type", "tool_type", default=None, help="Filter: MCP / FUNCTIONCALL."
+)
 @click.option("--page-number", type=int, default=None, help="Page number.")
 @click.option("--page-size", type=int, default=None, help="Page size.")
 @click.pass_context
@@ -227,18 +295,40 @@ def tool_list(ctx, tool_type, page_number, page_size):
 @tool_group.command("update")
 @click.option("--name", "tool_name", required=True, help="Tool name.")
 @click.option("--description", default=None, help="New description.")
-@click.option("--protocol-spec", "protocol_spec", default=None, help="New protocol spec.")
+@click.option(
+    "--protocol-spec", "protocol_spec", default=None, help="New protocol spec."
+)
 @click.option("--timeout", type=int, default=None, help="New timeout.")
 @click.option("--memory", type=int, default=None, help="New memory (MB).")
 @click.option("--cpu", type=float, default=None, help="New CPU cores.")
-@click.option("--credential", "credential_name", default=None, help="New credential name.")
-@click.option("--proxy-enabled/--no-proxy-enabled", "proxy_enabled", default=None, help="MCP proxy toggle.")
+@click.option(
+    "--credential", "credential_name", default=None, help="New credential name."
+)
+@click.option(
+    "--proxy-enabled/--no-proxy-enabled",
+    "proxy_enabled",
+    default=None,
+    help="MCP proxy toggle.",
+)
 @click.option("--session-affinity", default=None, help="Session affinity.")
-@click.option("--from-file", "from_file", default=None, help="JSON file with update fields.")
+@click.option(
+    "--from-file", "from_file", default=None, help="JSON file with update fields."
+)
 @click.pass_context
 @handle_errors
-def tool_update(ctx, tool_name, description, protocol_spec, timeout, memory, cpu,
-                credential_name, proxy_enabled, session_affinity, from_file):
+def tool_update(
+    ctx,
+    tool_name,
+    description,
+    protocol_spec,
+    timeout,
+    memory,
+    cpu,
+    credential_name,
+    proxy_enabled,
+    session_affinity,
+    from_file,
+):
     """Update a tool."""
     from alibabacloud_agentrun20250910 import models
 
@@ -274,7 +364,9 @@ def tool_update(ctx, tool_name, description, protocol_spec, timeout, memory, cpu
     request = models.UpdateToolRequest(body=inp)
     resp = client.update_tool_with_options(tool_name, request, headers, runtime)
     data = resp.body.data
-    result = _serialize_tool(data) if data else {"tool_name": tool_name, "status": "updated"}
+    result = (
+        _serialize_tool(data) if data else {"tool_name": tool_name, "status": "updated"}
+    )
     format_output(ctx, result, quiet_field="tool_name")
 
 
@@ -294,6 +386,7 @@ def tool_delete(ctx, tool_name):
 # ===========================================================================
 # Data-plane: list-tools / invoke
 # ===========================================================================
+
 
 @tool_group.command("list-tools")
 @click.option("--name", "tool_name", required=True, help="Tool name.")
@@ -327,13 +420,15 @@ def tool_invoke(ctx, tool_name, sub_tool, arguments, arguments_file):
     from agentrun.tool import Tool
 
     if arguments and arguments_file:
-        raise click.UsageError("--arguments and --arguments-file are mutually exclusive.")
+        raise click.UsageError(
+            "--arguments and --arguments-file are mutually exclusive."
+        )
 
     args = None
     if arguments:
         args = json.loads(arguments)
     elif arguments_file:
-        with open(arguments_file, "r", encoding="utf-8") as f:
+        with open(arguments_file, encoding="utf-8") as f:
             args = json.load(f)
 
     profile, region = _ctx_cfg(ctx)

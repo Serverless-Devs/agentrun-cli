@@ -1,7 +1,5 @@
 """``ar sandbox template`` — manage sandbox templates."""
 
-from typing import Optional
-
 import click
 
 from agentrun_cli._utils.error import handle_errors
@@ -16,27 +14,73 @@ def template_group():
 
 
 @template_group.command("create")
-@click.option("--type", "tpl_type", required=True, help="Template type: CodeInterpreter / Browser / AllInOne / CustomImage.")
-@click.option("--name", "tpl_name", default=None, help="Template name (auto-generated if omitted).")
+@click.option(
+    "--type",
+    "tpl_type",
+    required=True,
+    help="Template type: CodeInterpreter / Browser / AllInOne / CustomImage.",
+)
+@click.option(
+    "--name",
+    "tpl_name",
+    default=None,
+    help="Template name (auto-generated if omitted).",
+)
 @click.option("--cpu", type=float, default=None, help="CPU cores.")
 @click.option("--memory", type=int, default=None, help="Memory in MB.")
 @click.option("--disk-size", type=int, default=None, help="Disk size in MB.")
-@click.option("--idle-timeout", type=int, default=None, help="Sandbox idle timeout (seconds).")
+@click.option(
+    "--idle-timeout", type=int, default=None, help="Sandbox idle timeout (seconds)."
+)
 @click.option("--ttl", type=int, default=None, help="Sandbox max TTL (seconds).")
-@click.option("--concurrency", type=int, default=None, help="Max concurrency per sandbox.")
+@click.option(
+    "--concurrency", type=int, default=None, help="Max concurrency per sandbox."
+)
 @click.option("--description", default=None, help="Template description.")
-@click.option("--env", multiple=True, help="Environment variable (KEY=VALUE), repeatable.")
-@click.option("--network-mode", default=None, help="Network mode: PUBLIC / PRIVATE / PUBLIC_AND_PRIVATE.")
+@click.option(
+    "--env", multiple=True, help="Environment variable (KEY=VALUE), repeatable."
+)
+@click.option(
+    "--network-mode",
+    default=None,
+    help="Network mode: PUBLIC / PRIVATE / PUBLIC_AND_PRIVATE.",
+)
 @click.option("--credential-name", default=None, help="Credential name.")
-@click.option("--container-image", default=None, help="Container image (CustomImage type).")
-@click.option("--container-port", type=int, default=None, help="Container port (CustomImage type).")
-@click.option("--from-file", "from_file", default=None, help="Path to JSON file with full TemplateInput.")
+@click.option(
+    "--container-image", default=None, help="Container image (CustomImage type)."
+)
+@click.option(
+    "--container-port",
+    type=int,
+    default=None,
+    help="Container port (CustomImage type).",
+)
+@click.option(
+    "--from-file",
+    "from_file",
+    default=None,
+    help="Path to JSON file with full TemplateInput.",
+)
 @click.pass_context
 @handle_errors
-def template_create(ctx, tpl_type, tpl_name, cpu, memory, disk_size,
-                    idle_timeout, ttl, concurrency, description, env,
-                    network_mode, credential_name, container_image,
-                    container_port, from_file):
+def template_create(
+    ctx,
+    tpl_type,
+    tpl_name,
+    cpu,
+    memory,
+    disk_size,
+    idle_timeout,
+    ttl,
+    concurrency,
+    description,
+    env,
+    network_mode,
+    credential_name,
+    container_image,
+    container_port,
+    from_file,
+):
     """Create a sandbox template."""
     from agentrun.sandbox import (
         Sandbox,
@@ -139,15 +183,25 @@ def template_list(ctx, page, page_size, tpl_type):
 @click.argument("template_name")
 @click.option("--cpu", type=float, default=None, help="CPU cores.")
 @click.option("--memory", type=int, default=None, help="Memory in MB.")
-@click.option("--idle-timeout", type=int, default=None, help="Sandbox idle timeout (seconds).")
+@click.option(
+    "--idle-timeout", type=int, default=None, help="Sandbox idle timeout (seconds)."
+)
 @click.option("--ttl", type=int, default=None, help="Sandbox max TTL (seconds).")
 @click.option("--description", default=None, help="Template description.")
-@click.option("--env", multiple=True, help="Environment variable (KEY=VALUE), repeatable.")
-@click.option("--from-file", "from_file", default=None, help="Path to JSON file with update fields.")
+@click.option(
+    "--env", multiple=True, help="Environment variable (KEY=VALUE), repeatable."
+)
+@click.option(
+    "--from-file",
+    "from_file",
+    default=None,
+    help="Path to JSON file with update fields.",
+)
 @click.pass_context
 @handle_errors
-def template_update(ctx, template_name, cpu, memory, idle_timeout, ttl,
-                    description, env, from_file):
+def template_update(
+    ctx, template_name, cpu, memory, idle_timeout, ttl, description, env, from_file
+):
     """Update a sandbox template."""
     from agentrun.sandbox import Sandbox, TemplateInput
 
@@ -188,4 +242,8 @@ def template_delete(ctx, template_name):
 
     cfg = _build_cfg(ctx)
     Sandbox.delete_template(template_name, config=cfg)
-    format_output(ctx, {"template_name": template_name, "status": "DELETED"}, quiet_field="template_name")
+    format_output(
+        ctx,
+        {"template_name": template_name, "status": "DELETED"},
+        quiet_field="template_name",
+    )

@@ -8,12 +8,18 @@ from agentrun_cli._utils.config import build_sdk_config
 # All env vars that build_sdk_config may read — must be cleared in tests
 # to avoid cross-contamination from the real user profile.
 _ALL_ENV_KEYS = [
-    "AGENTRUN_ACCESS_KEY_ID", "ALIBABA_CLOUD_ACCESS_KEY_ID",
-    "AGENTRUN_ACCESS_KEY_SECRET", "ALIBABA_CLOUD_ACCESS_KEY_SECRET",
-    "AGENTRUN_SECURITY_TOKEN", "ALIBABA_CLOUD_SECURITY_TOKEN",
-    "AGENTRUN_ACCOUNT_ID", "FC_ACCOUNT_ID",
-    "AGENTRUN_REGION", "FC_REGION",
-    "AGENTRUN_CONTROL_ENDPOINT", "AGENTRUN_DATA_ENDPOINT",
+    "AGENTRUN_ACCESS_KEY_ID",
+    "ALIBABA_CLOUD_ACCESS_KEY_ID",
+    "AGENTRUN_ACCESS_KEY_SECRET",
+    "ALIBABA_CLOUD_ACCESS_KEY_SECRET",
+    "AGENTRUN_SECURITY_TOKEN",
+    "ALIBABA_CLOUD_SECURITY_TOKEN",
+    "AGENTRUN_ACCOUNT_ID",
+    "FC_ACCOUNT_ID",
+    "AGENTRUN_REGION",
+    "FC_REGION",
+    "AGENTRUN_CONTROL_ENDPOINT",
+    "AGENTRUN_DATA_ENDPOINT",
 ]
 
 
@@ -31,15 +37,17 @@ def _sdk_modules(mock_config):
 
 
 class TestBuildSdkConfig:
-
     def test_from_profile(self, tmp_path):
         """Profile values are used when no env vars are set."""
         config_file = tmp_path / "config.json"
 
-        with patch("agentrun_cli._utils.config.CONFIG_FILE", config_file), \
-             patch("agentrun_cli._utils.config.CONFIG_DIR", tmp_path), \
-             patch.dict("os.environ", _clean_env(), clear=True):
+        with (
+            patch("agentrun_cli._utils.config.CONFIG_FILE", config_file),
+            patch("agentrun_cli._utils.config.CONFIG_DIR", tmp_path),
+            patch.dict("os.environ", _clean_env(), clear=True),
+        ):
             from agentrun_cli._utils.config import set_profile_value
+
             set_profile_value("access_key_id", "LTAI5tABC")
             set_profile_value("access_key_secret", "secret123")
             set_profile_value("account_id", "1234567890")
@@ -58,10 +66,13 @@ class TestBuildSdkConfig:
         """Profile has higher priority than environment variables."""
         config_file = tmp_path / "config.json"
 
-        with patch("agentrun_cli._utils.config.CONFIG_FILE", config_file), \
-             patch("agentrun_cli._utils.config.CONFIG_DIR", tmp_path), \
-             patch.dict("os.environ", _clean_env(), clear=True):
+        with (
+            patch("agentrun_cli._utils.config.CONFIG_FILE", config_file),
+            patch("agentrun_cli._utils.config.CONFIG_DIR", tmp_path),
+            patch.dict("os.environ", _clean_env(), clear=True),
+        ):
             from agentrun_cli._utils.config import set_profile_value
+
             set_profile_value("access_key_id", "PROFILE_AK")
             set_profile_value("access_key_secret", "PROFILE_SK")
             set_profile_value("account_id", "PROFILE_ACCT")
@@ -86,9 +97,11 @@ class TestBuildSdkConfig:
         """Env vars are used when profile has no values."""
         config_file = tmp_path / "config.json"
 
-        with patch("agentrun_cli._utils.config.CONFIG_FILE", config_file), \
-             patch("agentrun_cli._utils.config.CONFIG_DIR", tmp_path), \
-             patch.dict("os.environ", _clean_env(), clear=True):
+        with (
+            patch("agentrun_cli._utils.config.CONFIG_FILE", config_file),
+            patch("agentrun_cli._utils.config.CONFIG_DIR", tmp_path),
+            patch.dict("os.environ", _clean_env(), clear=True),
+        ):
             os.environ["AGENTRUN_ACCESS_KEY_ID"] = "ENV_AK"
             os.environ["AGENTRUN_ACCESS_KEY_SECRET"] = "ENV_SK"
             os.environ["AGENTRUN_ACCOUNT_ID"] = "ENV_ACCT"
@@ -107,9 +120,11 @@ class TestBuildSdkConfig:
         """ALIBABA_CLOUD_* and FC_* env vars work as fallback."""
         config_file = tmp_path / "config.json"
 
-        with patch("agentrun_cli._utils.config.CONFIG_FILE", config_file), \
-             patch("agentrun_cli._utils.config.CONFIG_DIR", tmp_path), \
-             patch.dict("os.environ", _clean_env(), clear=True):
+        with (
+            patch("agentrun_cli._utils.config.CONFIG_FILE", config_file),
+            patch("agentrun_cli._utils.config.CONFIG_DIR", tmp_path),
+            patch.dict("os.environ", _clean_env(), clear=True),
+        ):
             os.environ["ALIBABA_CLOUD_ACCESS_KEY_ID"] = "ALI_AK"
             os.environ["ALIBABA_CLOUD_ACCESS_KEY_SECRET"] = "ALI_SK"
             os.environ["ALIBABA_CLOUD_SECURITY_TOKEN"] = "ALI_TOKEN"
@@ -130,9 +145,11 @@ class TestBuildSdkConfig:
         """AGENTRUN_* env vars take precedence over ALIBABA_CLOUD_*/FC_*."""
         config_file = tmp_path / "config.json"
 
-        with patch("agentrun_cli._utils.config.CONFIG_FILE", config_file), \
-             patch("agentrun_cli._utils.config.CONFIG_DIR", tmp_path), \
-             patch.dict("os.environ", _clean_env(), clear=True):
+        with (
+            patch("agentrun_cli._utils.config.CONFIG_FILE", config_file),
+            patch("agentrun_cli._utils.config.CONFIG_DIR", tmp_path),
+            patch.dict("os.environ", _clean_env(), clear=True),
+        ):
             os.environ["AGENTRUN_ACCESS_KEY_ID"] = "AR_AK"
             os.environ["ALIBABA_CLOUD_ACCESS_KEY_ID"] = "ALI_AK"
             os.environ["AGENTRUN_ACCOUNT_ID"] = "AR_ACCT"
@@ -149,10 +166,13 @@ class TestBuildSdkConfig:
         """--region flag beats both profile and env vars."""
         config_file = tmp_path / "config.json"
 
-        with patch("agentrun_cli._utils.config.CONFIG_FILE", config_file), \
-             patch("agentrun_cli._utils.config.CONFIG_DIR", tmp_path), \
-             patch.dict("os.environ", _clean_env(), clear=True):
+        with (
+            patch("agentrun_cli._utils.config.CONFIG_FILE", config_file),
+            patch("agentrun_cli._utils.config.CONFIG_DIR", tmp_path),
+            patch.dict("os.environ", _clean_env(), clear=True),
+        ):
             from agentrun_cli._utils.config import set_profile_value
+
             set_profile_value("region", "cn-shanghai")
             os.environ["AGENTRUN_REGION"] = "cn-beijing"
 
@@ -166,9 +186,11 @@ class TestBuildSdkConfig:
         """All values are None when nothing is configured."""
         config_file = tmp_path / "config.json"
 
-        with patch("agentrun_cli._utils.config.CONFIG_FILE", config_file), \
-             patch("agentrun_cli._utils.config.CONFIG_DIR", tmp_path), \
-             patch.dict("os.environ", _clean_env(), clear=True):
+        with (
+            patch("agentrun_cli._utils.config.CONFIG_FILE", config_file),
+            patch("agentrun_cli._utils.config.CONFIG_DIR", tmp_path),
+            patch.dict("os.environ", _clean_env(), clear=True),
+        ):
             mock_cfg = MagicMock()
             with patch.dict("sys.modules", _sdk_modules(mock_cfg)):
                 build_sdk_config()
@@ -183,10 +205,13 @@ class TestBuildSdkConfig:
         """Profile values are propagated to env vars for SDK compatibility."""
         config_file = tmp_path / "config.json"
 
-        with patch("agentrun_cli._utils.config.CONFIG_FILE", config_file), \
-             patch("agentrun_cli._utils.config.CONFIG_DIR", tmp_path), \
-             patch.dict("os.environ", _clean_env(), clear=True):
+        with (
+            patch("agentrun_cli._utils.config.CONFIG_FILE", config_file),
+            patch("agentrun_cli._utils.config.CONFIG_DIR", tmp_path),
+            patch.dict("os.environ", _clean_env(), clear=True),
+        ):
             from agentrun_cli._utils.config import set_profile_value
+
             set_profile_value("access_key_id", "PROP_AK")
             set_profile_value("account_id", "PROP_ACCT")
 
@@ -202,10 +227,13 @@ class TestBuildSdkConfig:
         ctrl = "agentrun-pre.cn-hangzhou.aliyuncs.com"
         data = "https://acct.funagent-data-pre.cn-hangzhou.aliyuncs.com"
 
-        with patch("agentrun_cli._utils.config.CONFIG_FILE", config_file), \
-             patch("agentrun_cli._utils.config.CONFIG_DIR", tmp_path), \
-             patch.dict("os.environ", _clean_env(), clear=True):
+        with (
+            patch("agentrun_cli._utils.config.CONFIG_FILE", config_file),
+            patch("agentrun_cli._utils.config.CONFIG_DIR", tmp_path),
+            patch.dict("os.environ", _clean_env(), clear=True),
+        ):
             from agentrun_cli._utils.config import set_profile_value
+
             set_profile_value("control_endpoint", ctrl)
             set_profile_value("data_endpoint", data)
 
@@ -223,9 +251,11 @@ class TestBuildSdkConfig:
         """Endpoint env vars are used when profile has none."""
         config_file = tmp_path / "config.json"
 
-        with patch("agentrun_cli._utils.config.CONFIG_FILE", config_file), \
-             patch("agentrun_cli._utils.config.CONFIG_DIR", tmp_path), \
-             patch.dict("os.environ", _clean_env(), clear=True):
+        with (
+            patch("agentrun_cli._utils.config.CONFIG_FILE", config_file),
+            patch("agentrun_cli._utils.config.CONFIG_DIR", tmp_path),
+            patch.dict("os.environ", _clean_env(), clear=True),
+        ):
             os.environ["AGENTRUN_CONTROL_ENDPOINT"] = "env-ctrl.example.com"
             os.environ["AGENTRUN_DATA_ENDPOINT"] = "env-data.example.com"
 
@@ -240,10 +270,13 @@ class TestBuildSdkConfig:
         """Profile endpoints beat env vars, mirroring AK/region resolution."""
         config_file = tmp_path / "config.json"
 
-        with patch("agentrun_cli._utils.config.CONFIG_FILE", config_file), \
-             patch("agentrun_cli._utils.config.CONFIG_DIR", tmp_path), \
-             patch.dict("os.environ", _clean_env(), clear=True):
+        with (
+            patch("agentrun_cli._utils.config.CONFIG_FILE", config_file),
+            patch("agentrun_cli._utils.config.CONFIG_DIR", tmp_path),
+            patch.dict("os.environ", _clean_env(), clear=True),
+        ):
             from agentrun_cli._utils.config import set_profile_value
+
             set_profile_value("control_endpoint", "profile-ctrl.example.com")
             set_profile_value("data_endpoint", "profile-data.example.com")
             os.environ["AGENTRUN_CONTROL_ENDPOINT"] = "env-ctrl.example.com"

@@ -14,12 +14,11 @@ Exit-code convention:
 
 import functools
 import sys
-from typing import Callable
+from collections.abc import Callable
 
 import click
 
 from agentrun_cli._utils.output import echo_error
-
 
 EXIT_SUCCESS = 0
 EXIT_NOT_FOUND = 1

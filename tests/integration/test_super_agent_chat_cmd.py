@@ -26,8 +26,8 @@ def _make_agent():
         async def __anext__(self):
             try:
                 return next(self._it)
-            except StopIteration:
-                raise StopAsyncIteration
+            except StopIteration as exc:
+                raise StopAsyncIteration from exc
 
         async def aclose(self):
             pass
@@ -41,28 +41,39 @@ def _patch_stack(agent):
     client = MagicMock()
     client.get.return_value = agent
     return (
-        patch("agentrun_cli.commands.super_agent.chat_cmd.SuperAgentClient",
-              return_value=client),
-        patch("agentrun_cli.commands.super_agent.chat_cmd.build_sdk_config",
-              return_value=MagicMock()),
+        patch(
+            "agentrun_cli.commands.super_agent.chat_cmd.SuperAgentClient",
+            return_value=client,
+        ),
+        patch(
+            "agentrun_cli.commands.super_agent.chat_cmd.build_sdk_config",
+            return_value=MagicMock(),
+        ),
     )
 
 
 class TestChatResumeFromState:
-
     def test_chat_reads_last_conv(self, tmp_path):
         state_file = tmp_path / "state.json"
-        state_file.write_text(json.dumps({
-            "agents": {"my-agent": {
-                "last_conversation_id": "conv-prev",
-                "last_used_at": "2026-04-16T00:00:00Z",
-            }},
-        }))
+        state_file.write_text(
+            json.dumps(
+                {
+                    "agents": {
+                        "my-agent": {
+                            "last_conversation_id": "conv-prev",
+                            "last_used_at": "2026-04-16T00:00:00Z",
+                        }
+                    },
+                }
+            )
+        )
         agent = _make_agent()
         client_p, cfg_p = _patch_stack(agent)
-        with client_p, cfg_p, \
-             patch("agentrun_cli._utils.super_agent_state.STATE_FILE",
-                   state_file):
+        with (
+            client_p,
+            cfg_p,
+            patch("agentrun_cli._utils.super_agent_state.STATE_FILE", state_file),
+        ):
             runner = CliRunner()
             # Use -m to supply initial message, then input /exit to quit REPL
             result = runner.invoke(
@@ -76,20 +87,27 @@ class TestChatResumeFromState:
 
 
 class TestChatNewFlag:
-
     def test_new_flag_clears_state(self, tmp_path):
         state_file = tmp_path / "state.json"
-        state_file.write_text(json.dumps({
-            "agents": {"my-agent": {
-                "last_conversation_id": "conv-prev",
-                "last_used_at": "2026-04-16T00:00:00Z",
-            }},
-        }))
+        state_file.write_text(
+            json.dumps(
+                {
+                    "agents": {
+                        "my-agent": {
+                            "last_conversation_id": "conv-prev",
+                            "last_used_at": "2026-04-16T00:00:00Z",
+                        }
+                    },
+                }
+            )
+        )
         agent = _make_agent()
         client_p, cfg_p = _patch_stack(agent)
-        with client_p, cfg_p, \
-             patch("agentrun_cli._utils.super_agent_state.STATE_FILE",
-                   state_file):
+        with (
+            client_p,
+            cfg_p,
+            patch("agentrun_cli._utils.super_agent_state.STATE_FILE", state_file),
+        ):
             runner = CliRunner()
             result = runner.invoke(
                 cli,
@@ -102,25 +120,31 @@ class TestChatNewFlag:
 
 
 class TestChatExplicitConv:
-
     def test_explicit_conv_overrides_state(self, tmp_path):
         state_file = tmp_path / "state.json"
-        state_file.write_text(json.dumps({
-            "agents": {"my-agent": {
-                "last_conversation_id": "conv-state",
-                "last_used_at": "2026-04-16T00:00:00Z",
-            }},
-        }))
+        state_file.write_text(
+            json.dumps(
+                {
+                    "agents": {
+                        "my-agent": {
+                            "last_conversation_id": "conv-state",
+                            "last_used_at": "2026-04-16T00:00:00Z",
+                        }
+                    },
+                }
+            )
+        )
         agent = _make_agent()
         client_p, cfg_p = _patch_stack(agent)
-        with client_p, cfg_p, \
-             patch("agentrun_cli._utils.super_agent_state.STATE_FILE",
-                   state_file):
+        with (
+            client_p,
+            cfg_p,
+            patch("agentrun_cli._utils.super_agent_state.STATE_FILE", state_file),
+        ):
             runner = CliRunner()
             result = runner.invoke(
                 cli,
-                ["sa", "chat", "my-agent",
-                 "-c", "conv-explicit", "-m", "hi", "--raw"],
+                ["sa", "chat", "my-agent", "-c", "conv-explicit", "-m", "hi", "--raw"],
                 input="/exit\n",
             )
         assert result.exit_code == 0, result.output
@@ -129,7 +153,6 @@ class TestChatExplicitConv:
 
 
 class TestChatRawTextOnlyConflict:
-
     def test_raw_and_text_only_both_fail(self):
         agent = _make_agent()
         client_p, cfg_p = _patch_stack(agent)

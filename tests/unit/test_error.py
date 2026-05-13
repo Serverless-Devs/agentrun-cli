@@ -1,8 +1,6 @@
 """Tests for agentrun_cli._utils.error — the handle_errors decorator."""
 
 import json
-import sys
-from unittest.mock import patch
 
 import click
 import pytest

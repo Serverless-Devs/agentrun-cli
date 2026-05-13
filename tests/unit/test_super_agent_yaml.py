@@ -117,7 +117,6 @@ spec:
 
 
 class TestParseMinimal:
-
     def test_minimal(self):
         docs = parse_yaml_text(VALID_MINIMAL)
         assert len(docs) == 1
@@ -143,7 +142,6 @@ class TestParseMinimal:
 
 
 class TestParseMultiDoc:
-
     def test_two_docs(self):
         docs = parse_yaml_text(MULTI_DOC)
         assert len(docs) == 2
@@ -151,7 +149,6 @@ class TestParseMultiDoc:
 
 
 class TestInvalid:
-
     def test_invalid_kind(self):
         with pytest.raises(YamlSchemaError) as e:
             parse_yaml_text(INVALID_KIND)
@@ -160,10 +157,7 @@ class TestInvalid:
     def test_invalid_api_version(self):
         with pytest.raises(YamlSchemaError) as e:
             parse_yaml_text(INVALID_VERSION)
-        assert (
-            "apiversion" in str(e.value).lower()
-            or "v1" in str(e.value)
-        )
+        assert "apiversion" in str(e.value).lower() or "v1" in str(e.value)
 
     def test_missing_name(self):
         with pytest.raises(YamlSchemaError) as e:
@@ -200,7 +194,6 @@ class TestInvalid:
 
 
 class TestParseFile:
-
     def test_parse_file(self, tmp_path):
         f = tmp_path / "a.yaml"
         f.write_text(VALID_MINIMAL)

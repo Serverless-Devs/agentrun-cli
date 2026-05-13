@@ -1,4 +1,4 @@
-.PHONY: help install dev lint test test-unit test-integration test-cov coverage clean build build-linux build-macos build-all
+.PHONY: help install dev lint format-check security test test-unit test-integration test-cov coverage clean build build-linux build-macos build-all
 
 PYTHON   ?= python3
 VENV     := .venv
@@ -25,6 +25,12 @@ dev: ## Install with dev dependencies
 
 lint: ## Run ruff linter
 	$(BIN)/ruff check src/ tests/
+
+format-check: ## Check code formatting (ruff format)
+	$(BIN)/ruff format --check src/ tests/
+
+security: ## Audit dependencies for known vulnerabilities
+	$(BIN)/pip-audit
 
 test: ## Run all tests (unit + integration)
 	$(BIN)/pytest tests/unit tests/integration -v

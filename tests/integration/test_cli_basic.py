@@ -1,8 +1,6 @@
 """Basic smoke tests for the CLI entry point and config commands."""
 
 import json
-import os
-import tempfile
 from unittest.mock import patch
 
 from click.testing import CliRunner
@@ -47,8 +45,10 @@ class TestConfigCommands:
 
     def test_set_and_get(self, tmp_path):
         config_file = tmp_path / "config.json"
-        with patch("agentrun_cli._utils.config.CONFIG_FILE", config_file), \
-             patch("agentrun_cli._utils.config.CONFIG_DIR", tmp_path):
+        with (
+            patch("agentrun_cli._utils.config.CONFIG_FILE", config_file),
+            patch("agentrun_cli._utils.config.CONFIG_DIR", tmp_path),
+        ):
             runner = CliRunner()
 
             result = runner.invoke(cli, ["config", "set", "region", "cn-shanghai"])
@@ -60,12 +60,16 @@ class TestConfigCommands:
 
     def test_list_masks_secrets(self, tmp_path):
         config_file = tmp_path / "config.json"
-        with patch("agentrun_cli._utils.config.CONFIG_FILE", config_file), \
-             patch("agentrun_cli._utils.config.CONFIG_DIR", tmp_path):
+        with (
+            patch("agentrun_cli._utils.config.CONFIG_FILE", config_file),
+            patch("agentrun_cli._utils.config.CONFIG_DIR", tmp_path),
+        ):
             runner = CliRunner()
 
             runner.invoke(cli, ["config", "set", "access_key_id", "LTAI5tABC"])
-            runner.invoke(cli, ["config", "set", "access_key_secret", "MySecretKeyValue123"])
+            runner.invoke(
+                cli, ["config", "set", "access_key_secret", "MySecretKeyValue123"]
+            )
 
             result = runner.invoke(cli, ["config", "list"])
             assert result.exit_code == 0
@@ -77,8 +81,10 @@ class TestConfigCommands:
 
     def test_get_missing_key(self, tmp_path):
         config_file = tmp_path / "config.json"
-        with patch("agentrun_cli._utils.config.CONFIG_FILE", config_file), \
-             patch("agentrun_cli._utils.config.CONFIG_DIR", tmp_path):
+        with (
+            patch("agentrun_cli._utils.config.CONFIG_FILE", config_file),
+            patch("agentrun_cli._utils.config.CONFIG_DIR", tmp_path),
+        ):
             runner = CliRunner()
             result = runner.invoke(cli, ["config", "get", "nonexistent"])
             assert result.exit_code != 0

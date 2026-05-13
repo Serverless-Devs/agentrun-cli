@@ -17,7 +17,6 @@ def _ev(event, data, sse_id=None):
 
 
 class TestPickRenderMode:
-
     def test_tty_no_flags_is_pretty(self):
         m = pick_render_mode(is_tty=True, raw=False, text_only=False)
         assert m == RenderMode.PRETTY
@@ -40,12 +39,11 @@ class TestPickRenderMode:
 
 
 class TestRawRenderer:
-
     def test_emits_json_per_event(self, capsys):
         events = [
             _ev("RUN_STARTED", '{"threadId":"t1","runId":"r1"}'),
             _ev("TEXT_MESSAGE_CONTENT", '{"delta":"hello"}'),
-            _ev("RUN_FINISHED", '{}'),
+            _ev("RUN_FINISHED", "{}"),
         ]
         r = StreamRenderer(RenderMode.RAW)
         for e in events:
@@ -66,14 +64,13 @@ class TestRawRenderer:
 
 
 class TestTextOnlyRenderer:
-
     def test_accumulates_text(self, capsys):
         r = StreamRenderer(RenderMode.TEXT_ONLY)
-        r.feed(_ev("TEXT_MESSAGE_START", '{}'))
+        r.feed(_ev("TEXT_MESSAGE_START", "{}"))
         r.feed(_ev("TEXT_MESSAGE_CONTENT", '{"delta":"Hello "}'))
         r.feed(_ev("TEXT_MESSAGE_CONTENT", '{"delta":"world"}'))
-        r.feed(_ev("TEXT_MESSAGE_END", '{}'))
-        r.feed(_ev("RUN_FINISHED", '{}'))
+        r.feed(_ev("TEXT_MESSAGE_END", "{}"))
+        r.feed(_ev("RUN_FINISHED", "{}"))
         r.finish()
         out = capsys.readouterr().out
         assert "Hello world" in out
@@ -89,7 +86,6 @@ class TestTextOnlyRenderer:
 
 
 class TestPrettyRenderer:
-
     def test_renders_text_delta(self, capsys):
         r = StreamRenderer(RenderMode.PRETTY, use_color=False)
         r.feed(_ev("TEXT_MESSAGE_CONTENT", '{"delta":"hi"}'))
@@ -100,15 +96,16 @@ class TestPrettyRenderer:
     def test_text_message_end_newline(self, capsys):
         r = StreamRenderer(RenderMode.PRETTY, use_color=False)
         r.feed(_ev("TEXT_MESSAGE_CONTENT", '{"delta":"hi"}'))
-        r.feed(_ev("TEXT_MESSAGE_END", '{}'))
+        r.feed(_ev("TEXT_MESSAGE_END", "{}"))
         r.finish()
         out = capsys.readouterr().out
         assert out.endswith("\n")
 
     def test_renders_tool_call_header(self, capsys):
         r = StreamRenderer(RenderMode.PRETTY, use_color=False)
-        r.feed(_ev("TOOL_CALL_START",
-                   '{"toolCallId":"tc1","toolCallName":"web_search"}'))
+        r.feed(
+            _ev("TOOL_CALL_START", '{"toolCallId":"tc1","toolCallName":"web_search"}')
+        )
         r.finish()
         out = capsys.readouterr().out
         assert "web_search" in out
@@ -117,8 +114,12 @@ class TestPrettyRenderer:
     def test_renders_tool_result_truncated(self, capsys):
         r = StreamRenderer(RenderMode.PRETTY, use_color=False)
         long_content = "x" * 500
-        r.feed(_ev("TOOL_CALL_RESULT",
-                   json.dumps({"toolCallId": "tc1", "content": long_content})))
+        r.feed(
+            _ev(
+                "TOOL_CALL_RESULT",
+                json.dumps({"toolCallId": "tc1", "content": long_content}),
+            )
+        )
         r.finish()
         out = capsys.readouterr().out
         assert "..." in out
@@ -135,7 +136,7 @@ class TestPrettyRenderer:
     def test_run_finished_emits_separator(self, capsys):
         r = StreamRenderer(RenderMode.PRETTY, use_color=False)
         r.feed(_ev("TEXT_MESSAGE_CONTENT", '{"delta":"hi"}'))
-        r.feed(_ev("RUN_FINISHED", '{}'))
+        r.feed(_ev("RUN_FINISHED", "{}"))
         r.finish()
         out = capsys.readouterr().out
         assert "─" in out
@@ -150,11 +151,10 @@ class TestPrettyRenderer:
 
 
 class TestEnvelopeFooter:
-
     def test_raw_emits_envelope_on_finish(self, capsys):
         r = StreamRenderer(RenderMode.RAW)
         r.set_conversation_id("conv-xxx")
-        r.feed(_ev("RUN_FINISHED", '{}'))
+        r.feed(_ev("RUN_FINISHED", "{}"))
         r.finish_with_envelope()
         out = capsys.readouterr().out.strip().splitlines()
         envelope = json.loads(out[-1])
@@ -179,7 +179,6 @@ class TestEnvelopeFooter:
 
 
 class TestSafeJson:
-
     def test_invalid_json_handled(self, capsys):
         r = StreamRenderer(RenderMode.PRETTY, use_color=False)
         r.feed(_ev("TEXT_MESSAGE_CONTENT", "not-json"))
@@ -190,7 +189,6 @@ class TestSafeJson:
 
 
 class TestFlushAndErrorEdges:
-
     def _stream_that_raises_on_flush(self):
         class S:
             def __init__(self):
@@ -204,6 +202,7 @@ class TestFlushAndErrorEdges:
 
             def isatty(self):
                 return False
+
         return S()
 
     def test_finish_swallows_flush_error_pretty(self):
@@ -257,8 +256,7 @@ class TestEventTypeInData:
 
     def test_pretty_tool_call_start_from_data_type(self, capsys):
         r = StreamRenderer(RenderMode.PRETTY, use_color=False)
-        r.feed(_ev(None,
-                   '{"type":"TOOL_CALL_START","toolCallName":"search"}'))
+        r.feed(_ev(None, '{"type":"TOOL_CALL_START","toolCallName":"search"}'))
         r.finish()
         out = capsys.readouterr().out
         assert "search" in out

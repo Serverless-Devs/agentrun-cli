@@ -21,7 +21,6 @@ Examples::
 """
 
 import json
-from typing import Optional
 
 import click
 
@@ -29,10 +28,10 @@ from agentrun_cli._utils.config import build_sdk_config
 from agentrun_cli._utils.error import handle_errors
 from agentrun_cli._utils.output import format_output
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _serialize_model_service(svc) -> dict:
     """Convert a ModelService SDK object to a plain dict for output."""
@@ -42,7 +41,9 @@ def _serialize_model_service(svc) -> dict:
         "model_type": str(svc.model_type) if svc.model_type else None,
         "description": svc.description,
         "status": str(svc.status) if svc.status else None,
-        "provider_settings": svc.provider_settings.model_dump() if svc.provider_settings else None,
+        "provider_settings": svc.provider_settings.model_dump()
+        if svc.provider_settings
+        else None,
         "model_info_configs": (
             [c.model_dump() for c in svc.model_info_configs]
             if svc.model_info_configs
@@ -54,13 +55,13 @@ def _serialize_model_service(svc) -> dict:
     }
 
 
-def _load_json_option(raw: Optional[str]) -> Optional[dict]:
+def _load_json_option(raw: str | None) -> dict | None:
     """Parse a --from-file path or inline JSON string into a dict."""
     if raw is None:
         return None
     # If it looks like a file path, read the file
     if not raw.strip().startswith("{"):
-        with open(raw, "r", encoding="utf-8") as f:
+        with open(raw, encoding="utf-8") as f:
             return json.load(f)
     return json.loads(raw)
 
@@ -68,6 +69,7 @@ def _load_json_option(raw: Optional[str]) -> Optional[dict]:
 # ---------------------------------------------------------------------------
 # Top-level group
 # ---------------------------------------------------------------------------
+
 
 @click.group("model", help="Manage model services.")
 def model_group():
@@ -78,19 +80,60 @@ def model_group():
 # ar model create / get / list / update / delete
 # ===========================================================================
 
+
 @model_group.command("create")
-@click.option("--name", "service_name", required=True, help="Unique name for the model service.")
-@click.option("--provider", required=True, help="Provider identifier (e.g. tongyi, openai, deepseek, anthropic).")
-@click.option("--model-type", "model_type", default="llm", help="Model type: llm, text-embedding, rerank, speech2text, tts, moderation.")
-@click.option("--model-names", default=None, help="Comma-separated list of model names exposed by this service.")
+@click.option(
+    "--name", "service_name", required=True, help="Unique name for the model service."
+)
+@click.option(
+    "--provider",
+    required=True,
+    help="Provider identifier (e.g. tongyi, openai, deepseek, anthropic).",
+)
+@click.option(
+    "--model-type",
+    "model_type",
+    default="llm",
+    help="Model type: llm, text-embedding, rerank, speech2text, tts, moderation.",
+)
+@click.option(
+    "--model-names",
+    default=None,
+    help="Comma-separated list of model names exposed by this service.",
+)
 @click.option("--base-url", default=None, help="Custom base URL for the provider API.")
-@click.option("--api-key", default=None, help="API key for the provider (prefer using credentials instead).")
-@click.option("--credential", "credential_name", default=None, help="Name of an AgentRun credential to use for authentication.")
+@click.option(
+    "--api-key",
+    default=None,
+    help="API key for the provider (prefer using credentials instead).",
+)
+@click.option(
+    "--credential",
+    "credential_name",
+    default=None,
+    help="Name of an AgentRun credential to use for authentication.",
+)
 @click.option("--description", default=None, help="Human-readable description.")
-@click.option("--from-file", "from_file", default=None, help="Path to a JSON file with full ModelServiceCreateInput.")
+@click.option(
+    "--from-file",
+    "from_file",
+    default=None,
+    help="Path to a JSON file with full ModelServiceCreateInput.",
+)
 @click.pass_context
 @handle_errors
-def model_create(ctx, service_name, provider, model_type, model_names, base_url, api_key, credential_name, description, from_file):
+def model_create(
+    ctx,
+    service_name,
+    provider,
+    model_type,
+    model_names,
+    base_url,
+    api_key,
+    credential_name,
+    description,
+    from_file,
+):
     """Register a new model service."""
     from agentrun.model import (
         ModelService,
@@ -130,7 +173,12 @@ def model_create(ctx, service_name, provider, model_type, model_names, base_url,
 
 
 @model_group.command("get")
-@click.option("--name", "service_name", required=True, help="Name of the model service to retrieve.")
+@click.option(
+    "--name",
+    "service_name",
+    required=True,
+    help="Name of the model service to retrieve.",
+)
 @click.pass_context
 @handle_errors
 def model_get(ctx, service_name):
@@ -147,7 +195,15 @@ def model_get(ctx, service_name):
 
 @model_group.command("list")
 @click.option("--provider", default=None, help="Filter by provider name.")
-@click.option("--model-type", "model_type", default="llm", help="Model type: llm, text-embedding, rerank, speech2text, tts, moderation (default: llm).")
+@click.option(
+    "--model-type",
+    "model_type",
+    default="llm",
+    help=(
+        "Model type: llm, text-embedding, rerank, "
+        "speech2text, tts, moderation (default: llm)."
+    ),
+)
 @click.pass_context
 @handle_errors
 def model_list(ctx, provider, model_type):
@@ -165,15 +221,26 @@ def model_list(ctx, provider, model_type):
 
 
 @model_group.command("update")
-@click.option("--name", "service_name", required=True, help="Name of the model service to update.")
+@click.option(
+    "--name", "service_name", required=True, help="Name of the model service to update."
+)
 @click.option("--description", default=None, help="New description.")
 @click.option("--api-key", default=None, help="New API key.")
 @click.option("--base-url", default=None, help="New base URL.")
-@click.option("--credential", "credential_name", default=None, help="New credential name.")
-@click.option("--from-file", "from_file", default=None, help="Path to a JSON file with ModelServiceUpdateInput fields.")
+@click.option(
+    "--credential", "credential_name", default=None, help="New credential name."
+)
+@click.option(
+    "--from-file",
+    "from_file",
+    default=None,
+    help="Path to a JSON file with ModelServiceUpdateInput fields.",
+)
 @click.pass_context
 @handle_errors
-def model_update(ctx, service_name, description, api_key, base_url, credential_name, from_file):
+def model_update(
+    ctx, service_name, description, api_key, base_url, credential_name, from_file
+):
     """Update an existing model service."""
     from agentrun.model import ModelService, ModelServiceUpdateInput, ProviderSettings
 
@@ -201,7 +268,9 @@ def model_update(ctx, service_name, description, api_key, base_url, credential_n
 
 
 @model_group.command("delete")
-@click.option("--name", "service_name", required=True, help="Name of the model service to delete.")
+@click.option(
+    "--name", "service_name", required=True, help="Name of the model service to delete."
+)
 @click.pass_context
 @handle_errors
 def model_delete(ctx, service_name):

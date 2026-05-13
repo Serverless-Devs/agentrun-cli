@@ -11,8 +11,9 @@ from __future__ import annotations
 
 import asyncio
 import enum
+from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Any, Callable, Optional
+from typing import Any
 
 import click
 
@@ -62,22 +63,23 @@ def handle_slash(line: str) -> SlashResult:
 class ReplConfig:
     agent_name: str
     render_mode: RenderMode
-    initial_conv_id: Optional[str] = None
-    input_fn: Optional[Callable[[str], str]] = None
-    initial_message: Optional[str] = None
+    initial_conv_id: str | None = None
+    input_fn: Callable[[str], str] | None = None
+    initial_message: str | None = None
 
 
 # Indirection so tests can patch the state-file writer without importing
 # super_agent_state at repl-module level.
 def _default_state_writer(agent_name: str, conv_id: str) -> None:
     from agentrun_cli._utils.super_agent_state import set_last_conv_id
+
     set_last_conv_id(agent_name, conv_id)
 
 
 STATE_FILE_WRITER = _default_state_writer
 
 
-def run_repl(agent, cfg: ReplConfig) -> Optional[str]:
+def run_repl(agent, cfg: ReplConfig) -> str | None:
     """Drive the REPL. Returns the final conversation_id (or None)."""
     state = _ReplState(
         agent=agent,
@@ -139,9 +141,9 @@ def run_repl(agent, cfg: ReplConfig) -> Optional[str]:
 class _ReplState:
     agent: Any
     cfg: ReplConfig
-    conversation_id: Optional[str]
+    conversation_id: str | None
     render_mode: RenderMode
-    pending_user_input: Optional[str] = None
+    pending_user_input: str | None = None
 
 
 def _run_one_turn(state: _ReplState, *, user_text: str) -> None:
@@ -150,7 +152,8 @@ def _run_one_turn(state: _ReplState, *, user_text: str) -> None:
 
     async def drive():
         stream = await state.agent.invoke_async(
-            messages=messages, conversation_id=state.conversation_id,
+            messages=messages,
+            conversation_id=state.conversation_id,
         )
         renderer.set_conversation_id(stream.conversation_id)
         try:

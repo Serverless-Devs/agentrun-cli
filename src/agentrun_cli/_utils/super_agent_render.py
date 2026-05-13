@@ -13,7 +13,6 @@ from __future__ import annotations
 import enum
 import json
 import sys
-from typing import Optional
 
 import click
 
@@ -24,9 +23,7 @@ class RenderMode(str, enum.Enum):
     TEXT_ONLY = "text-only"
 
 
-def pick_render_mode(
-    *, is_tty: bool, raw: bool, text_only: bool
-) -> RenderMode:
+def pick_render_mode(*, is_tty: bool, raw: bool, text_only: bool) -> RenderMode:
     """Resolve render mode from TTY + user flags.
 
     Raises ValueError if --raw and --text-only are both set.
@@ -43,7 +40,7 @@ def pick_render_mode(
 _TOOL_RESULT_PREVIEW_LIMIT = 200
 
 
-def _event_name(event, payload: dict) -> Optional[str]:
+def _event_name(event, payload: dict) -> str | None:
     """Resolve the AG-UI event type.
 
     The real server streams SSE with an empty ``event:`` field and puts the
@@ -65,18 +62,14 @@ class StreamRenderer:
         self,
         mode: RenderMode,
         *,
-        use_color: Optional[bool] = None,
+        use_color: bool | None = None,
         stream=None,
     ):
         self.mode = mode
-        self._conversation_id: Optional[str] = None
+        self._conversation_id: str | None = None
         self._out = stream if stream is not None else sys.stdout
         if use_color is None:
-            use_color = (
-                self._out.isatty()
-                if hasattr(self._out, "isatty")
-                else False
-            )
+            use_color = self._out.isatty() if hasattr(self._out, "isatty") else False
         self._use_color = use_color
 
     def set_conversation_id(self, conv_id: str) -> None:
@@ -95,7 +88,7 @@ class StreamRenderer:
         """Called at stream end. Flushes anything buffered."""
         try:
             self._out.flush()
-        except Exception:
+        except Exception:  # noqa: S110 — broken-pipe on flush is harmless
             pass
 
     def finish_with_envelope(self) -> None:
@@ -110,7 +103,7 @@ class StreamRenderer:
             self._out.write(json.dumps(envelope, ensure_ascii=False) + "\n")
             try:
                 self._out.flush()
-            except Exception:
+            except Exception:  # noqa: S110 — broken-pipe on flush is harmless
                 pass
 
     # ───────────────────────────────────────── internal renderers
@@ -164,9 +157,7 @@ class StreamRenderer:
             msg = payload.get("message", "") if payload else ""
             self._write_error(f"✖ run error: {msg}\n")
         elif name == "RUN_FINISHED":
-            self._out.write(
-                "─────────────────────────────────────────────\n"
-            )
+            self._out.write("─────────────────────────────────────────────\n")
 
     def _write_meta(self, text: str) -> None:
         if self._use_color:
