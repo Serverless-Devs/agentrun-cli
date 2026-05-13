@@ -5,14 +5,12 @@ operations (create / list / update / delete) that are not yet exposed by the
 high-level SDK resource classes.
 """
 
-from typing import Optional
-
 from agentrun_cli._utils.config import build_sdk_config
 
 
 def get_agentrun_client(
-    profile_name: Optional[str] = None,
-    region: Optional[str] = None,
+    profile_name: str | None = None,
+    region: str | None = None,
 ):
     """Build a low-level AgentRun API client from CLI context.
 

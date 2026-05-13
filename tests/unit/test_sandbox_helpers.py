@@ -15,7 +15,6 @@ from agentrun_cli.commands.sandbox._helpers import (
 
 
 class TestLoadJsonOption:
-
     def test_none(self):
         assert _load_json_option(None) is None
 
@@ -29,7 +28,6 @@ class TestLoadJsonOption:
 
 
 class TestReadCodeInput:
-
     def test_code_string(self):
         assert _read_code_input("print(1)", None) == "print(1)"
 
@@ -56,7 +54,6 @@ class TestReadCodeInput:
 
 
 class TestReadContentInput:
-
     def test_content_string(self):
         assert _read_content_input("hello", False) == "hello"
 
@@ -74,20 +71,26 @@ class TestReadContentInput:
 
 
 class TestBuildCfg:
-
     def test_build_cfg(self, tmp_path):
         from unittest.mock import MagicMock
 
         mock_ctx = MagicMock(spec=click.Context)
         mock_ctx.obj = {"profile": "test", "region": "cn-shanghai"}
         mock_sdk = MagicMock()
-        with patch.dict("sys.modules", {
-            "agentrun": MagicMock(),
-            "agentrun.utils": MagicMock(),
-            "agentrun.utils.config": MagicMock(Config=mock_sdk),
-        }):
-            with patch("agentrun_cli._utils.config.CONFIG_FILE", tmp_path / "config.json"), \
-                 patch("agentrun_cli._utils.config.CONFIG_DIR", tmp_path):
+        with patch.dict(
+            "sys.modules",
+            {
+                "agentrun": MagicMock(),
+                "agentrun.utils": MagicMock(),
+                "agentrun.utils.config": MagicMock(Config=mock_sdk),
+            },
+        ):
+            with (
+                patch(
+                    "agentrun_cli._utils.config.CONFIG_FILE", tmp_path / "config.json"
+                ),
+                patch("agentrun_cli._utils.config.CONFIG_DIR", tmp_path),
+            ):
                 _build_cfg(mock_ctx)
                 mock_sdk.assert_called_once()
                 assert mock_sdk.call_args.kwargs["region_id"] == "cn-shanghai"

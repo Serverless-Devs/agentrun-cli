@@ -32,11 +32,12 @@ def _make_agent(events_per_turn):
             async def __anext__(self):
                 try:
                     return next(self._it)
-                except StopIteration:
-                    raise StopAsyncIteration
+                except StopIteration as exc:
+                    raise StopAsyncIteration from exc
 
             async def aclose(self):
                 pass
+
         return S()
 
     async def invoke(messages, conversation_id=None):
@@ -51,7 +52,6 @@ def _make_agent(events_per_turn):
 
 
 class TestHandleSlash:
-
     def test_exit(self):
         assert handle_slash("/exit") == SlashResult.EXIT
 
@@ -84,13 +84,14 @@ class TestHandleSlash:
 
 
 class TestRunReplSingleTurn:
-
     def test_single_message_prints_reply(self):
-        events = [[
-            _ev("RUN_STARTED", '{}'),
-            _ev("TEXT_MESSAGE_CONTENT", '{"delta":"hi"}'),
-            _ev("RUN_FINISHED", '{}'),
-        ]]
+        events = [
+            [
+                _ev("RUN_STARTED", "{}"),
+                _ev("TEXT_MESSAGE_CONTENT", '{"delta":"hi"}'),
+                _ev("RUN_FINISHED", "{}"),
+            ]
+        ]
         agent = _make_agent(events)
         cfg = ReplConfig(
             agent_name="my-agent",
@@ -108,8 +109,8 @@ class TestRunReplSingleTurn:
 
     def test_initial_message_then_user_input(self):
         events = [
-            [_ev("RUN_FINISHED", '{}')],
-            [_ev("RUN_FINISHED", '{}')],
+            [_ev("RUN_FINISHED", "{}")],
+            [_ev("RUN_FINISHED", "{}")],
         ]
         agent = _make_agent(events)
         cfg = ReplConfig(
@@ -119,9 +120,7 @@ class TestRunReplSingleTurn:
             input_fn=MagicMock(side_effect=["next message", "/exit"]),
             initial_message="first",
         )
-        with patch(
-            "agentrun_cli._utils.super_agent_repl.STATE_FILE_WRITER"
-        ):
+        with patch("agentrun_cli._utils.super_agent_repl.STATE_FILE_WRITER"):
             run_repl(agent, cfg)
         assert agent.invoke_async.await_count == 2
 
@@ -132,19 +131,16 @@ class TestRunReplSingleTurn:
             render_mode=RenderMode.RAW,
             input_fn=MagicMock(side_effect=EOFError()),
         )
-        with patch(
-            "agentrun_cli._utils.super_agent_repl.STATE_FILE_WRITER"
-        ):
+        with patch("agentrun_cli._utils.super_agent_repl.STATE_FILE_WRITER"):
             final = run_repl(agent, cfg)
         assert final is None
 
 
 class TestRunReplSlashCommands:
-
     def test_new_resets_conversation(self):
         events = [
-            [_ev("RUN_FINISHED", '{}')],
-            [_ev("RUN_FINISHED", '{}')],
+            [_ev("RUN_FINISHED", "{}")],
+            [_ev("RUN_FINISHED", "{}")],
         ]
         agent = _make_agent(events)
         cfg = ReplConfig(
@@ -153,9 +149,7 @@ class TestRunReplSlashCommands:
             initial_conv_id="conv-old",
             input_fn=MagicMock(side_effect=["first", "/new", "second", "/exit"]),
         )
-        with patch(
-            "agentrun_cli._utils.super_agent_repl.STATE_FILE_WRITER"
-        ):
+        with patch("agentrun_cli._utils.super_agent_repl.STATE_FILE_WRITER"):
             run_repl(agent, cfg)
         calls = agent.invoke_async.await_args_list
         assert calls[0].kwargs["conversation_id"] == "conv-old"
@@ -165,7 +159,7 @@ class TestRunReplSlashCommands:
         assert calls[1].kwargs["conversation_id"] is None
 
     def test_conv_prints_current_id(self, capsys):
-        events = [[_ev("RUN_FINISHED", '{}')]]
+        events = [[_ev("RUN_FINISHED", "{}")]]
         agent = _make_agent(events)
         cfg = ReplConfig(
             agent_name="x",
@@ -173,62 +167,53 @@ class TestRunReplSlashCommands:
             initial_conv_id="conv-known",
             input_fn=MagicMock(side_effect=["/conv", "/exit"]),
         )
-        with patch(
-            "agentrun_cli._utils.super_agent_repl.STATE_FILE_WRITER"
-        ):
+        with patch("agentrun_cli._utils.super_agent_repl.STATE_FILE_WRITER"):
             run_repl(agent, cfg)
         out = capsys.readouterr().out
         assert "conv-known" in out
 
     def test_help_prints_help_text(self, capsys):
-        events = [[_ev("RUN_FINISHED", '{}')]]
+        events = [[_ev("RUN_FINISHED", "{}")]]
         agent = _make_agent(events)
         cfg = ReplConfig(
             agent_name="x",
             render_mode=RenderMode.RAW,
             input_fn=MagicMock(side_effect=["/help", "/exit"]),
         )
-        with patch(
-            "agentrun_cli._utils.super_agent_repl.STATE_FILE_WRITER"
-        ):
+        with patch("agentrun_cli._utils.super_agent_repl.STATE_FILE_WRITER"):
             run_repl(agent, cfg)
         out = capsys.readouterr().out
         assert "/exit" in out
         assert "/new" in out
 
     def test_toggle_raw(self, capsys):
-        events = [[_ev("RUN_FINISHED", '{}')]]
+        events = [[_ev("RUN_FINISHED", "{}")]]
         agent = _make_agent(events)
         cfg = ReplConfig(
             agent_name="x",
             render_mode=RenderMode.PRETTY,
             input_fn=MagicMock(side_effect=["/raw", "/exit"]),
         )
-        with patch(
-            "agentrun_cli._utils.super_agent_repl.STATE_FILE_WRITER"
-        ):
+        with patch("agentrun_cli._utils.super_agent_repl.STATE_FILE_WRITER"):
             run_repl(agent, cfg)
         out = capsys.readouterr().out
         assert "raw" in out.lower()
 
     def test_unknown_slash(self, capsys):
-        events = [[_ev("RUN_FINISHED", '{}')]]
+        events = [[_ev("RUN_FINISHED", "{}")]]
         agent = _make_agent(events)
         cfg = ReplConfig(
             agent_name="x",
             render_mode=RenderMode.RAW,
             input_fn=MagicMock(side_effect=["/foobar", "/exit"]),
         )
-        with patch(
-            "agentrun_cli._utils.super_agent_repl.STATE_FILE_WRITER"
-        ):
+        with patch("agentrun_cli._utils.super_agent_repl.STATE_FILE_WRITER"):
             run_repl(agent, cfg)
         out = capsys.readouterr().out
         assert "unknown" in out.lower()
 
 
 class TestReplEmptyInput:
-
     def test_empty_line_ignored(self):
         """Empty input line should not trigger invoke call."""
         agent = _make_agent([])
@@ -237,18 +222,15 @@ class TestReplEmptyInput:
             render_mode=RenderMode.RAW,
             input_fn=MagicMock(side_effect=["", "  ", "/exit"]),
         )
-        with patch(
-            "agentrun_cli._utils.super_agent_repl.STATE_FILE_WRITER"
-        ):
+        with patch("agentrun_cli._utils.super_agent_repl.STATE_FILE_WRITER"):
             run_repl(agent, cfg)
         assert agent.invoke_async.await_count == 0
 
 
 class TestReplStateWriteFailure:
-
     def test_state_writer_exception_warns_but_does_not_crash(self, capsys):
-        """If STATE_FILE_WRITER raises, REPL prints a warning to stderr and continues."""
-        events = [[_ev("RUN_FINISHED", '{}')]]
+        """STATE_FILE_WRITER error prints warning, does not crash."""
+        events = [[_ev("RUN_FINISHED", "{}")]]
         agent = _make_agent(events)
         cfg = ReplConfig(
             agent_name="x",

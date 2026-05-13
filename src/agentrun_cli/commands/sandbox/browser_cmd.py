@@ -57,7 +57,13 @@ def browser_vnc_url(ctx, sandbox_id, with_headers):
 @click.argument("sandbox_id")
 @click.option("--save-path", default="./screenshot.png", help="Local save path.")
 @click.option("--full-page", is_flag=True, help="Capture full page.")
-@click.option("--format", "img_format", default="png", type=click.Choice(["png", "jpeg"]), help="Image format.")
+@click.option(
+    "--format",
+    "img_format",
+    default="png",
+    type=click.Choice(["png", "jpeg"]),
+    help="Image format.",
+)
 @click.option("--quality", type=int, default=80, help="JPEG quality (1-100).")
 @click.pass_context
 @handle_errors
@@ -82,17 +88,27 @@ def browser_screenshot(ctx, sandbox_id, save_path, full_page, img_format, qualit
     pw.close()
 
     import os
-    format_output(ctx, {
-        "saved_path": save_path,
-        "size": os.path.getsize(save_path),
-        "format": img_format,
-    }, quiet_field="saved_path")
+
+    format_output(
+        ctx,
+        {
+            "saved_path": save_path,
+            "size": os.path.getsize(save_path),
+            "format": img_format,
+        },
+        quiet_field="saved_path",
+    )
 
 
 @browser_group.command("navigate")
 @click.argument("sandbox_id")
 @click.argument("url")
-@click.option("--wait-until", default="load", type=click.Choice(["load", "domcontentloaded", "networkidle"]), help="Wait condition.")
+@click.option(
+    "--wait-until",
+    default="load",
+    type=click.Choice(["load", "domcontentloaded", "networkidle"]),
+    help="Wait condition.",
+)
 @click.option("--timeout", type=int, default=30, help="Navigation timeout (seconds).")
 @click.pass_context
 @handle_errors
@@ -109,8 +125,12 @@ def browser_navigate(ctx, sandbox_id, url, wait_until, timeout):
     title = page.title()
     pw.close()
 
-    format_output(ctx, {
-        "url": url,
-        "title": title,
-        "status": response.status if response else None,
-    }, quiet_field="url")
+    format_output(
+        ctx,
+        {
+            "url": url,
+            "title": title,
+            "status": response.status if response else None,
+        },
+        quiet_field="url",
+    )

@@ -9,7 +9,6 @@ from agentrun_cli.main import cli
 
 
 class TestDebugFlag:
-
     def test_debug_enables_logging(self):
         runner = CliRunner()
         with patch("logging.basicConfig") as mock_basic:

@@ -23,6 +23,7 @@ def _get_client_cls():
     global SuperAgentClient
     if SuperAgentClient is None:
         from agentrun.super_agent import SuperAgentClient as _Cls
+
         SuperAgentClient = _Cls
     return SuperAgentClient
 
@@ -31,28 +32,39 @@ def _get_client_cls():
 # create
 # ---------------------------------------------------------------------------
 
+
 @click.command("create", help="Create a super agent.")
 @click.option("--name", required=True, help="Super agent name (globally unique).")
 @click.option("--description", default=None, help="Human-readable description.")
 @click.option("--prompt", "-p", default=None, help="System prompt for the agent.")
-@click.option("--model-service", default=None,
-              help="Name of the ModelService to use.")
-@click.option("--model", default=None,
-              help="Model name within the ModelService.")
-@click.option("--tool", "tools", multiple=True,
-              help="Tool name (repeatable).")
-@click.option("--skill", "skills", multiple=True,
-              help="Skill name (repeatable).")
-@click.option("--sandbox", "sandboxes", multiple=True,
-              help="Sandbox name (repeatable).")
-@click.option("--workspace", "workspaces", multiple=True,
-              help="Workspace name (repeatable).")
-@click.option("--sub-agent", "sub_agents", multiple=True,
-              help="Sub-agent name (repeatable).")
+@click.option("--model-service", default=None, help="Name of the ModelService to use.")
+@click.option("--model", default=None, help="Model name within the ModelService.")
+@click.option("--tool", "tools", multiple=True, help="Tool name (repeatable).")
+@click.option("--skill", "skills", multiple=True, help="Skill name (repeatable).")
+@click.option(
+    "--sandbox", "sandboxes", multiple=True, help="Sandbox name (repeatable)."
+)
+@click.option(
+    "--workspace", "workspaces", multiple=True, help="Workspace name (repeatable)."
+)
+@click.option(
+    "--sub-agent", "sub_agents", multiple=True, help="Sub-agent name (repeatable)."
+)
 @click.pass_context
 @handle_errors
-def create_cmd(ctx, name, description, prompt, model_service, model,
-               tools, skills, sandboxes, workspaces, sub_agents):
+def create_cmd(
+    ctx,
+    name,
+    description,
+    prompt,
+    model_service,
+    model,
+    tools,
+    skills,
+    sandboxes,
+    workspaces,
+    sub_agents,
+):
     """Create a super agent."""
     profile, region = ctx_cfg(ctx)
     cfg = build_sdk_config(profile_name=profile, region=region)
@@ -76,6 +88,7 @@ def create_cmd(ctx, name, description, prompt, model_service, model,
 # get
 # ---------------------------------------------------------------------------
 
+
 @click.command("get", help="Get a super agent by name.")
 @click.argument("name")
 @click.pass_context
@@ -93,11 +106,17 @@ def get_cmd(ctx, name):
 # list
 # ---------------------------------------------------------------------------
 
+
 @click.command("list", help="List super agents.")
 @click.option("--page", type=int, default=1, help="Page number.")
 @click.option("--page-size", type=int, default=20, help="Page size.")
-@click.option("--all", "all_pages", is_flag=True, default=False,
-              help="Fetch all pages automatically.")
+@click.option(
+    "--all",
+    "all_pages",
+    is_flag=True,
+    default=False,
+    help="Fetch all pages automatically.",
+)
 @click.pass_context
 @handle_errors
 def list_cmd(ctx, page, page_size, all_pages):
@@ -145,19 +164,38 @@ _LIST_FIELDS = [
 @click.option("--clear-sub-agents", is_flag=True, default=False)
 @click.pass_context
 @handle_errors
-def update_cmd(ctx, name, description, prompt, model_service, model,
-               tools, skills, sandboxes, workspaces, sub_agents,
-               clear_tools, clear_skills, clear_sandboxes,
-               clear_workspaces, clear_sub_agents):
+def update_cmd(
+    ctx,
+    name,
+    description,
+    prompt,
+    model_service,
+    model,
+    tools,
+    skills,
+    sandboxes,
+    workspaces,
+    sub_agents,
+    clear_tools,
+    clear_skills,
+    clear_sandboxes,
+    clear_workspaces,
+    clear_sub_agents,
+):
     """Update a super agent; only fields explicitly passed are changed."""
     clear_map = {
-        "tools": clear_tools, "skills": clear_skills,
-        "sandboxes": clear_sandboxes, "workspaces": clear_workspaces,
+        "tools": clear_tools,
+        "skills": clear_skills,
+        "sandboxes": clear_sandboxes,
+        "workspaces": clear_workspaces,
         "sub_agents": clear_sub_agents,
     }
     values_map = {
-        "tools": tools, "skills": skills, "sandboxes": sandboxes,
-        "workspaces": workspaces, "sub_agents": sub_agents,
+        "tools": tools,
+        "skills": skills,
+        "sandboxes": sandboxes,
+        "workspaces": workspaces,
+        "sub_agents": sub_agents,
     }
 
     kwargs: dict = {}
@@ -175,8 +213,7 @@ def update_cmd(ctx, name, description, prompt, model_service, model,
         has_clear = clear_map[cli_field]
         if has_values and has_clear:
             raise click.UsageError(
-                f"Cannot combine --{cli_field.replace('_', '-')} "
-                f"with {clear_flag_name}"
+                f"Cannot combine --{cli_field.replace('_', '-')} with {clear_flag_name}"
             )
         if has_clear:
             kwargs[sdk_field] = []
@@ -193,6 +230,7 @@ def update_cmd(ctx, name, description, prompt, model_service, model,
 # ---------------------------------------------------------------------------
 # delete
 # ---------------------------------------------------------------------------
+
 
 @click.command("delete", help="Delete a super agent.")
 @click.argument("name")

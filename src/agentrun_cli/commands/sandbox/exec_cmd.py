@@ -14,10 +14,28 @@ def register_exec_commands(sandbox_group: click.Group):
     @sandbox_group.command("exec")
     @click.argument("sandbox_id")
     @click.option("--code", default=None, help="Inline code to execute.")
-    @click.option("--file", "code_file", default=None, type=click.Path(exists=True), help="Path to code file.")
-    @click.option("--language", default=None, help="Language: python / javascript. Defaults to python when --context-id is not set; must be omitted when --context-id is set.")
-    @click.option("--context-id", default=None, help="Context ID for stateful execution.")
-    @click.option("--timeout", type=int, default=30, help="Execution timeout (seconds).")
+    @click.option(
+        "--file",
+        "code_file",
+        default=None,
+        type=click.Path(exists=True),
+        help="Path to code file.",
+    )
+    @click.option(
+        "--language",
+        default=None,
+        help=(
+            "Language: python / javascript. Defaults to python "
+            "when --context-id is not set; must be omitted "
+            "when --context-id is set."
+        ),
+    )
+    @click.option(
+        "--context-id", default=None, help="Context ID for stateful execution."
+    )
+    @click.option(
+        "--timeout", type=int, default=30, help="Execution timeout (seconds)."
+    )
     @click.pass_context
     @handle_errors
     def sandbox_exec(ctx, sandbox_id, code, code_file, language, context_id, timeout):
@@ -25,7 +43,9 @@ def register_exec_commands(sandbox_group: click.Group):
         from agentrun.sandbox import Sandbox
 
         if context_id and language:
-            raise click.UsageError("--context-id and --language are mutually exclusive.")
+            raise click.UsageError(
+                "--context-id and --language are mutually exclusive."
+            )
 
         if not context_id and not language:
             language = "python"
@@ -45,7 +65,9 @@ def register_exec_commands(sandbox_group: click.Group):
     @click.argument("sandbox_id")
     @click.option("--command", required=True, help="Shell command to execute.")
     @click.option("--cwd", required=True, help="Working directory.")
-    @click.option("--timeout", type=int, default=30, help="Execution timeout (seconds).")
+    @click.option(
+        "--timeout", type=int, default=30, help="Execution timeout (seconds)."
+    )
     @click.pass_context
     @handle_errors
     def sandbox_cmd(ctx, sandbox_id, command, cwd, timeout):

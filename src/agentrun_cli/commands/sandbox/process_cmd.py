@@ -53,7 +53,10 @@ def process_get(ctx, sandbox_id, pid):
 @click.option(
     "--force-shell",
     is_flag=True,
-    help="If the Process API does not know this PID, fall back to 'kill -9 <pid>' via the shell.",
+    help=(
+        "If the Process API does not know this PID, "
+        "fall back to 'kill -9 <pid>' via the shell."
+    ),
 )
 @click.pass_context
 @handle_errors

@@ -22,7 +22,6 @@ from __future__ import annotations
 import json
 import sys
 from datetime import datetime, timezone
-from typing import Optional
 
 from agentrun_cli._utils.config import CONFIG_DIR
 
@@ -35,7 +34,7 @@ def read_state() -> dict:
     if not path.exists():
         return {"agents": {}}
     try:
-        with open(path, "r", encoding="utf-8") as f:
+        with open(path, encoding="utf-8") as f:
             data = json.load(f)
     except (OSError, json.JSONDecodeError) as e:
         _warn(f"super-agent state file corrupt, ignoring: {e}")
@@ -58,7 +57,7 @@ def write_state(state: dict) -> None:
         _warn(f"failed to write super-agent state: {e}")
 
 
-def get_last_conv_id(agent_name: str) -> Optional[str]:
+def get_last_conv_id(agent_name: str) -> str | None:
     state = read_state()
     entry = state.get("agents", {}).get(agent_name, {})
     return entry.get("last_conversation_id") or None

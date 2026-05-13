@@ -53,7 +53,9 @@ def config_set(key: str, value: str, profile: str | None):
     security_token, control_endpoint, data_endpoint.
     """
     set_profile_value(key, value, profile_name=profile)
-    display_profile = profile or load_config().get("defaults", {}).get("profile", "default")
+    display_profile = profile or load_config().get("defaults", {}).get(
+        "profile", "default"
+    )
     click.echo(f"Set {key} in profile '{display_profile}'.")
 
 
@@ -84,7 +86,10 @@ def config_list(ctx: click.Context, profile: str | None):
     data = get_profile(profile)
     if not data:
         name = profile or load_config().get("defaults", {}).get("profile", "default")
-        click.echo(f"Profile '{name}' is empty. Run 'ar config set <key> <value>' to configure.")
+        click.echo(
+            f"Profile '{name}' is empty. "
+            "Run 'ar config set <key> <value>' to configure."
+        )
         return
 
     # Mask secrets in display

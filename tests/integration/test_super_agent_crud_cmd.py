@@ -12,6 +12,7 @@ from agentrun_cli.main import cli
 # Fixtures / helpers
 # ---------------------------------------------------------------------------
 
+
 def _make_agent(**overrides):
     defaults = {
         "name": "my-agent",
@@ -54,8 +55,8 @@ def _patch_sdk_cfg():
 # Help-text
 # ---------------------------------------------------------------------------
 
-class TestSuperAgentHelp:
 
+class TestSuperAgentHelp:
     def test_super_agent_help(self):
         runner = CliRunner()
         result = runner.invoke(cli, ["super-agent", "--help"])
@@ -73,20 +74,28 @@ class TestSuperAgentHelp:
 # create
 # ---------------------------------------------------------------------------
 
-class TestSuperAgentCreate:
 
+class TestSuperAgentCreate:
     def test_create_minimal(self):
         client, patcher = _patch_client()
         client.create.return_value = _make_agent(name="new-agent")
         with _patch_sdk_cfg(), patcher:
             runner = CliRunner()
-            result = runner.invoke(cli, [
-                "sa", "create",
-                "--name", "new-agent",
-                "--prompt", "You are helpful",
-                "--model-service", "svc-tongyi",
-                "--model", "qwen-max",
-            ])
+            result = runner.invoke(
+                cli,
+                [
+                    "sa",
+                    "create",
+                    "--name",
+                    "new-agent",
+                    "--prompt",
+                    "You are helpful",
+                    "--model-service",
+                    "svc-tongyi",
+                    "--model",
+                    "qwen-max",
+                ],
+            )
         assert result.exit_code == 0, result.output
         out = json.loads(result.output)
         assert out["name"] == "new-agent"
@@ -105,13 +114,21 @@ class TestSuperAgentCreate:
         )
         with _patch_sdk_cfg(), patcher:
             runner = CliRunner()
-            result = runner.invoke(cli, [
-                "sa", "create",
-                "--name", "researcher",
-                "--tool", "web-search",
-                "--tool", "calc",
-                "--skill", "data-analyzer",
-            ])
+            result = runner.invoke(
+                cli,
+                [
+                    "sa",
+                    "create",
+                    "--name",
+                    "researcher",
+                    "--tool",
+                    "web-search",
+                    "--tool",
+                    "calc",
+                    "--skill",
+                    "data-analyzer",
+                ],
+            )
         assert result.exit_code == 0, result.output
         kwargs = client.create.call_args.kwargs
         assert kwargs["tools"] == ["web-search", "calc"]
@@ -120,15 +137,22 @@ class TestSuperAgentCreate:
     def test_create_with_description(self):
         client, patcher = _patch_client()
         client.create.return_value = _make_agent(
-            name="x", description="desc",
+            name="x",
+            description="desc",
         )
         with _patch_sdk_cfg(), patcher:
             runner = CliRunner()
-            result = runner.invoke(cli, [
-                "sa", "create",
-                "--name", "x",
-                "--description", "desc",
-            ])
+            result = runner.invoke(
+                cli,
+                [
+                    "sa",
+                    "create",
+                    "--name",
+                    "x",
+                    "--description",
+                    "desc",
+                ],
+            )
         assert result.exit_code == 0, result.output
         kwargs = client.create.call_args.kwargs
         assert kwargs["description"] == "desc"
@@ -138,8 +162,8 @@ class TestSuperAgentCreate:
 # get
 # ---------------------------------------------------------------------------
 
-class TestSuperAgentGet:
 
+class TestSuperAgentGet:
     def test_get_existing(self):
         client, patcher = _patch_client()
         client.get.return_value = _make_agent(name="my-agent", status="READY")
@@ -165,8 +189,8 @@ class TestSuperAgentGet:
 # list
 # ---------------------------------------------------------------------------
 
-class TestSuperAgentList:
 
+class TestSuperAgentList:
     def test_list_default(self):
         client, patcher = _patch_client()
         client.list.return_value = [
@@ -198,9 +222,17 @@ class TestSuperAgentList:
         client.list.return_value = []
         with _patch_sdk_cfg(), patcher:
             runner = CliRunner()
-            result = runner.invoke(cli, [
-                "sa", "list", "--page", "2", "--page-size", "5",
-            ])
+            result = runner.invoke(
+                cli,
+                [
+                    "sa",
+                    "list",
+                    "--page",
+                    "2",
+                    "--page-size",
+                    "5",
+                ],
+            )
         assert result.exit_code == 0
         kwargs = client.list.call_args.kwargs
         assert kwargs["page_number"] == 2
@@ -211,19 +243,26 @@ class TestSuperAgentList:
 # update
 # ---------------------------------------------------------------------------
 
-class TestSuperAgentUpdate:
 
+class TestSuperAgentUpdate:
     def test_update_prompt(self):
         client, patcher = _patch_client()
         client.update.return_value = _make_agent(
-            name="my-agent", prompt="new prompt",
+            name="my-agent",
+            prompt="new prompt",
         )
         with _patch_sdk_cfg(), patcher:
             runner = CliRunner()
-            result = runner.invoke(cli, [
-                "sa", "update", "my-agent",
-                "--prompt", "new prompt",
-            ])
+            result = runner.invoke(
+                cli,
+                [
+                    "sa",
+                    "update",
+                    "my-agent",
+                    "--prompt",
+                    "new prompt",
+                ],
+            )
         assert result.exit_code == 0, result.output
         kwargs = client.update.call_args.kwargs
         assert kwargs["prompt"] == "new prompt"
@@ -232,14 +271,23 @@ class TestSuperAgentUpdate:
     def test_update_replace_tools(self):
         client, patcher = _patch_client()
         client.update.return_value = _make_agent(
-            name="my-agent", tools=["a", "b"],
+            name="my-agent",
+            tools=["a", "b"],
         )
         with _patch_sdk_cfg(), patcher:
             runner = CliRunner()
-            result = runner.invoke(cli, [
-                "sa", "update", "my-agent",
-                "--tool", "a", "--tool", "b",
-            ])
+            result = runner.invoke(
+                cli,
+                [
+                    "sa",
+                    "update",
+                    "my-agent",
+                    "--tool",
+                    "a",
+                    "--tool",
+                    "b",
+                ],
+            )
         assert result.exit_code == 0, result.output
         kwargs = client.update.call_args.kwargs
         assert kwargs["tools"] == ["a", "b"]
@@ -247,13 +295,20 @@ class TestSuperAgentUpdate:
     def test_update_clear_tools(self):
         client, patcher = _patch_client()
         client.update.return_value = _make_agent(
-            name="my-agent", tools=[],
+            name="my-agent",
+            tools=[],
         )
         with _patch_sdk_cfg(), patcher:
             runner = CliRunner()
-            result = runner.invoke(cli, [
-                "sa", "update", "my-agent", "--clear-tools",
-            ])
+            result = runner.invoke(
+                cli,
+                [
+                    "sa",
+                    "update",
+                    "my-agent",
+                    "--clear-tools",
+                ],
+            )
         assert result.exit_code == 0, result.output
         kwargs = client.update.call_args.kwargs
         assert kwargs["tools"] == []
@@ -263,12 +318,19 @@ class TestSuperAgentUpdate:
         client.update.return_value = _make_agent(name="my-agent")
         with _patch_sdk_cfg(), patcher:
             runner = CliRunner()
-            result = runner.invoke(cli, [
-                "sa", "update", "my-agent",
-                "--clear-tools", "--clear-skills",
-                "--clear-sandboxes", "--clear-workspaces",
-                "--clear-sub-agents",
-            ])
+            result = runner.invoke(
+                cli,
+                [
+                    "sa",
+                    "update",
+                    "my-agent",
+                    "--clear-tools",
+                    "--clear-skills",
+                    "--clear-sandboxes",
+                    "--clear-workspaces",
+                    "--clear-sub-agents",
+                ],
+            )
         assert result.exit_code == 0, result.output
         kwargs = client.update.call_args.kwargs
         assert kwargs["tools"] == []
@@ -281,25 +343,38 @@ class TestSuperAgentUpdate:
         client, patcher = _patch_client()
         with _patch_sdk_cfg(), patcher:
             runner = CliRunner()
-            result = runner.invoke(cli, [
-                "sa", "update", "my-agent",
-                "--tool", "a", "--clear-tools",
-            ])
+            result = runner.invoke(
+                cli,
+                [
+                    "sa",
+                    "update",
+                    "my-agent",
+                    "--tool",
+                    "a",
+                    "--clear-tools",
+                ],
+            )
         assert result.exit_code != 0
         combined = result.output
-        assert (
-            "cannot" in combined.lower() or "conflict" in combined.lower()
-        )
+        assert "cannot" in combined.lower() or "conflict" in combined.lower()
 
     def test_update_model(self):
         client, patcher = _patch_client()
         client.update.return_value = _make_agent(name="my-agent")
         with _patch_sdk_cfg(), patcher:
             runner = CliRunner()
-            result = runner.invoke(cli, [
-                "sa", "update", "my-agent",
-                "--model-service", "svc-b", "--model", "mb",
-            ])
+            result = runner.invoke(
+                cli,
+                [
+                    "sa",
+                    "update",
+                    "my-agent",
+                    "--model-service",
+                    "svc-b",
+                    "--model",
+                    "mb",
+                ],
+            )
         assert result.exit_code == 0, result.output
         kwargs = client.update.call_args.kwargs
         assert kwargs["model_service_name"] == "svc-b"
@@ -310,8 +385,8 @@ class TestSuperAgentUpdate:
 # delete
 # ---------------------------------------------------------------------------
 
-class TestSuperAgentDelete:
 
+class TestSuperAgentDelete:
     def test_delete(self):
         client, patcher = _patch_client()
         client.delete.return_value = None

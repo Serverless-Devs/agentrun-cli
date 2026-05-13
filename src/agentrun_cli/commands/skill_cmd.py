@@ -22,7 +22,6 @@ import io
 import json
 import os
 import zipfile
-from typing import Optional
 
 import click
 
@@ -31,10 +30,10 @@ from agentrun_cli._utils.error import handle_errors
 from agentrun_cli._utils.inner_client import get_agentrun_client
 from agentrun_cli._utils.output import format_output
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _ctx_cfg(ctx):
     return (ctx.obj or {}).get("profile"), (ctx.obj or {}).get("region")
@@ -42,15 +41,20 @@ def _ctx_cfg(ctx):
 
 def _serialize_tool(t) -> dict:
     return {
-        k: v for k, v in {
+        k: v
+        for k, v in {
             "tool_id": getattr(t, "tool_id", None),
             "tool_name": getattr(t, "tool_name", None) or getattr(t, "name", None),
             "tool_type": getattr(t, "tool_type", None),
             "status": getattr(t, "status", None),
             "description": getattr(t, "description", None),
-            "created_at": getattr(t, "created_at", None) or getattr(t, "created_time", None),
-            "updated_at": getattr(t, "updated_at", None) or getattr(t, "last_updated_at", None) or getattr(t, "last_modified_time", None),
-        }.items() if v is not None
+            "created_at": getattr(t, "created_at", None)
+            or getattr(t, "created_time", None),
+            "updated_at": getattr(t, "updated_at", None)
+            or getattr(t, "last_updated_at", None)
+            or getattr(t, "last_modified_time", None),
+        }.items()
+        if v is not None
     }
 
 
@@ -66,11 +70,11 @@ def _zip_directory(dir_path: str) -> str:
     return base64.b64encode(buf.getvalue()).decode("ascii")
 
 
-def _load_json_option(raw: Optional[str]) -> Optional[dict]:
+def _load_json_option(raw: str | None) -> dict | None:
     if raw is None:
         return None
     if not raw.strip().startswith("{"):
-        with open(raw, "r", encoding="utf-8") as f:
+        with open(raw, encoding="utf-8") as f:
             return json.load(f)
     return json.loads(raw)
 
@@ -78,6 +82,7 @@ def _load_json_option(raw: Optional[str]) -> Optional[dict]:
 # ---------------------------------------------------------------------------
 # Top-level group
 # ---------------------------------------------------------------------------
+
 
 @click.group("skill", help="Manage skill packages.")
 def skill_group():
@@ -88,12 +93,21 @@ def skill_group():
 # Platform-side (control plane)
 # ===========================================================================
 
+
 @skill_group.command("create")
 @click.option("--name", "skill_name", required=True, help="Unique skill name.")
-@click.option("--code-dir", required=True, help="Local skill directory (must contain SKILL.md).")
-@click.option("--description", default=None, help="Skill description (auto-read from SKILL.md if omitted).")
+@click.option(
+    "--code-dir", required=True, help="Local skill directory (must contain SKILL.md)."
+)
+@click.option(
+    "--description",
+    default=None,
+    help="Skill description (auto-read from SKILL.md if omitted).",
+)
 @click.option("--credential", "credential_name", default=None, help="Credential name.")
-@click.option("--from-file", "from_file", default=None, help="JSON file with full config.")
+@click.option(
+    "--from-file", "from_file", default=None, help="JSON file with full config."
+)
 @click.pass_context
 @handle_errors
 def skill_create(ctx, skill_name, code_dir, description, credential_name, from_file):
@@ -133,14 +147,18 @@ def skill_create(ctx, skill_name, code_dir, description, credential_name, from_f
     request = models.CreateToolRequest(body=inp)
     resp = client.create_tool_with_options(request, headers, runtime)
     data = resp.body.data
-    result = _serialize_tool(data) if data else {"tool_name": skill_name, "status": "created"}
+    result = (
+        _serialize_tool(data)
+        if data
+        else {"tool_name": skill_name, "status": "created"}
+    )
     format_output(ctx, result, quiet_field="tool_name")
 
 
-def _extract_description(skill_md_path: str) -> Optional[str]:
+def _extract_description(skill_md_path: str) -> str | None:
     """Try to extract description from SKILL.md YAML frontmatter."""
     try:
-        with open(skill_md_path, "r", encoding="utf-8") as f:
+        with open(skill_md_path, encoding="utf-8") as f:
             content = f.read()
         if not content.startswith("---"):
             return None
@@ -149,9 +167,9 @@ def _extract_description(skill_md_path: str) -> Optional[str]:
         for line in frontmatter.splitlines():
             line = line.strip()
             if line.startswith("description:"):
-                val = line[len("description:"):].strip().strip("\"'")
+                val = line[len("description:") :].strip().strip("\"'")
                 return val if val else None
-    except Exception:
+    except Exception:  # noqa: S110 — best-effort YAML description parse
         pass
     return None
 
@@ -208,7 +226,12 @@ def skill_delete(ctx, skill_name):
 
 @skill_group.command("download")
 @click.option("--name", "skill_name", required=True, help="Skill name.")
-@click.option("--dir", "target_dir", default=".skills", help="Target directory (default: .skills).")
+@click.option(
+    "--dir",
+    "target_dir",
+    default=".skills",
+    help="Target directory (default: .skills).",
+)
 @click.pass_context
 @handle_errors
 def skill_download(ctx, skill_name, target_dir):
@@ -219,19 +242,29 @@ def skill_download(ctx, skill_name, target_dir):
     cfg = build_sdk_config(profile_name=profile, region=region)
     tool = Tool.get_by_name(skill_name, config=cfg)
     path = tool.download_skill(target_dir=target_dir, config=cfg)
-    format_output(ctx, {
-        "skill_name": skill_name,
-        "path": path,
-        "status": "downloaded",
-    }, quiet_field="path")
+    format_output(
+        ctx,
+        {
+            "skill_name": skill_name,
+            "path": path,
+            "status": "downloaded",
+        },
+        quiet_field="path",
+    )
 
 
 # ===========================================================================
 # Local-side (data plane)
 # ===========================================================================
 
+
 @skill_group.command("scan")
-@click.option("--dir", "skills_dir", default=".skills", help="Local skills directory (default: .skills).")
+@click.option(
+    "--dir",
+    "skills_dir",
+    default=".skills",
+    help="Local skills directory (default: .skills).",
+)
 @click.pass_context
 @handle_errors
 def skill_scan(ctx, skills_dir):
@@ -240,14 +273,26 @@ def skill_scan(ctx, skills_dir):
 
     loader = SkillLoader(skills_dir=skills_dir)
     skills = loader.scan_skills()
-    rows = [{"name": s.name, "description": s.description, "version": s.version, "path": s.path}
-            for s in skills]
+    rows = [
+        {
+            "name": s.name,
+            "description": s.description,
+            "version": s.version,
+            "path": s.path,
+        }
+        for s in skills
+    ]
     format_output(ctx, rows)
 
 
 @skill_group.command("load")
 @click.option("--name", "skill_name", required=True, help="Skill name.")
-@click.option("--dir", "skills_dir", default=".skills", help="Local skills directory (default: .skills).")
+@click.option(
+    "--dir",
+    "skills_dir",
+    default=".skills",
+    help="Local skills directory (default: .skills).",
+)
 @click.pass_context
 @handle_errors
 def skill_load(ctx, skill_name, skills_dir):
@@ -271,8 +316,18 @@ def skill_load(ctx, skill_name, skills_dir):
 
 @skill_group.command("read-file")
 @click.option("--name", "skill_name", required=True, help="Skill name.")
-@click.option("--path", "relative_path", required=True, help="Relative path within skill directory.")
-@click.option("--dir", "skills_dir", default=".skills", help="Local skills directory (default: .skills).")
+@click.option(
+    "--path",
+    "relative_path",
+    required=True,
+    help="Relative path within skill directory.",
+)
+@click.option(
+    "--dir",
+    "skills_dir",
+    default=".skills",
+    help="Local skills directory (default: .skills).",
+)
 @click.pass_context
 @handle_errors
 def skill_read_file(ctx, skill_name, relative_path, skills_dir):
@@ -295,8 +350,15 @@ def skill_read_file(ctx, skill_name, relative_path, skills_dir):
 @skill_group.command("exec")
 @click.option("--name", "skill_name", required=True, help="Skill name.")
 @click.option("--command", "cmd", required=True, help="Shell command to execute.")
-@click.option("--dir", "skills_dir", default=".skills", help="Local skills directory (default: .skills).")
-@click.option("--timeout", type=int, default=300, help="Timeout in seconds (default: 300).")
+@click.option(
+    "--dir",
+    "skills_dir",
+    default=".skills",
+    help="Local skills directory (default: .skills).",
+)
+@click.option(
+    "--timeout", type=int, default=300, help="Timeout in seconds (default: 300)."
+)
 @click.pass_context
 @handle_errors
 def skill_exec(ctx, skill_name, cmd, skills_dir, timeout):

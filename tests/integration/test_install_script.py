@@ -122,8 +122,7 @@ printf '%s\n' 'expected-sha  agentrun-0.1.0-darwin-arm64.tar.gz'
         ["sh", str(repo_root / "scripts" / "install.sh")],
         env=env,
         text=True,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
+        capture_output=True,
         check=False,
     )
 

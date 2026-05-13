@@ -18,6 +18,7 @@ def _get_client_cls():
     global SuperAgentClient
     if SuperAgentClient is None:
         from agentrun.super_agent import SuperAgentClient as _Cls
+
         SuperAgentClient = _Cls
     return SuperAgentClient
 
@@ -27,25 +28,39 @@ def _get_client_cls():
     help="Enter interactive REPL with an existing super agent.",
 )
 @click.argument("name")
-@click.option("--conversation", "-c", "conversation_id", default=None,
-              help="Resume a specific conversation id.")
-@click.option("--new", "force_new", is_flag=True, default=False,
-              help="Start a fresh conversation (ignore local state).")
-@click.option("--message", "-m", "initial_message", default=None,
-              help="Send an initial message right after entering the REPL.")
+@click.option(
+    "--conversation",
+    "-c",
+    "conversation_id",
+    default=None,
+    help="Resume a specific conversation id.",
+)
+@click.option(
+    "--new",
+    "force_new",
+    is_flag=True,
+    default=False,
+    help="Start a fresh conversation (ignore local state).",
+)
+@click.option(
+    "--message",
+    "-m",
+    "initial_message",
+    default=None,
+    help="Send an initial message right after entering the REPL.",
+)
 @click.option("--raw", is_flag=True, default=False)
 @click.option("--text-only", is_flag=True, default=False)
 @click.pass_context
 @handle_errors
-def chat_cmd(ctx, name, conversation_id, force_new, initial_message,
-             raw, text_only):
+def chat_cmd(ctx, name, conversation_id, force_new, initial_message, raw, text_only):
     """Chat with an existing super agent."""
     try:
         mode = pick_render_mode(
             is_tty=sys.stdout.isatty(), raw=raw, text_only=text_only
         )
     except ValueError as e:
-        raise click.UsageError(str(e))
+        raise click.UsageError(str(e)) from e
 
     profile, region = ctx_cfg(ctx)
     cfg = build_sdk_config(profile_name=profile, region=region)

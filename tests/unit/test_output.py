@@ -4,11 +4,9 @@ import json
 from unittest.mock import MagicMock, patch
 
 import click
-from click.testing import CliRunner
 
 from agentrun_cli._utils.output import (
     echo_error,
-    echo_json,
     echo_quiet,
     echo_table,
     format_output,
@@ -39,7 +37,11 @@ class TestEchoTable:
         rows = [{"name": "hello"}]
         with patch.dict("sys.modules", {"rich.console": None, "rich.table": None}):
             # Force ImportError by patching builtins.__import__
-            original_import = __builtins__.__import__ if hasattr(__builtins__, '__import__') else __import__
+            original_import = (
+                __builtins__.__import__
+                if hasattr(__builtins__, "__import__")
+                else __import__
+            )
 
             def mock_import(name, *args, **kwargs):
                 if name in ("rich.console", "rich.table"):
@@ -58,7 +60,7 @@ class TestEchoTable:
 
 
 class TestEchoQuiet:
-    """Cover echo_quiet: string, dict with field, dict with _name/_id, dict fallback, other."""
+    """Cover echo_quiet: string, dict w/ field, _name/_id, fallback."""
 
     def test_string_data(self, capsys):
         echo_quiet("hello")
@@ -135,7 +137,9 @@ class TestFormatOutput:
         assert json.loads(out) == {"key": "val"}
 
     def test_quiet_format(self, capsys):
-        format_output(self._make_ctx("quiet"), {"service_name": "svc"}, quiet_field="service_name")
+        format_output(
+            self._make_ctx("quiet"), {"service_name": "svc"}, quiet_field="service_name"
+        )
         assert capsys.readouterr().out.strip() == "svc"
 
     def test_none_ctx_obj(self, capsys):

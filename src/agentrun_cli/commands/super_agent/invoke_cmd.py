@@ -2,7 +2,6 @@
 
 import json
 import sys
-from typing import List, Optional
 
 import click
 
@@ -24,26 +23,23 @@ def _get_client_cls():
     global SuperAgentClient
     if SuperAgentClient is None:
         from agentrun.super_agent import SuperAgentClient as _Cls
+
         SuperAgentClient = _Cls
     return SuperAgentClient
 
 
-def _parse_messages(
-    message: Optional[str], messages_json: Optional[str]
-) -> List[dict]:
+def _parse_messages(message: str | None, messages_json: str | None) -> list[dict]:
     if message and messages_json:
-        raise click.UsageError(
-            "Use either --message/-m OR --messages, not both"
-        )
+        raise click.UsageError("Use either --message/-m OR --messages, not both")
     if not message and not messages_json:
         raise click.UsageError("One of --message/-m or --messages is required")
     if message:
         return [{"role": "user", "content": message}]
-    assert messages_json is not None  # Guarded by the checks above.
+    # At this point messages_json is guaranteed non-None by the guard above.
     try:
         parsed = json.loads(messages_json)
     except (TypeError, ValueError) as e:
-        raise click.UsageError(f"--messages is not valid JSON: {e}")
+        raise click.UsageError(f"--messages is not valid JSON: {e}") from e
     if not isinstance(parsed, list):
         raise click.UsageError("--messages must be a JSON array")
     return parsed
@@ -51,25 +47,60 @@ def _parse_messages(
 
 @click.command("invoke", help="Invoke a super agent (single call).")
 @click.argument("name")
-@click.option("--message", "-m", default=None,
-              help="User message (creates a single user-role message).")
-@click.option("--messages", "messages_json", default=None,
-              help="Full messages JSON array (mutually exclusive with -m).")
-@click.option("--conversation", "-c", "conversation_id", default=None,
-              help="Continue an existing conversation by id.")
-@click.option("--save-conv", is_flag=True, default=False,
-              help="Save the returned conversation_id to local state "
-                   "for future 'ar sa chat' resume.")
-@click.option("--raw", is_flag=True, default=False,
-              help="Force raw SSE JSON-line output.")
-@click.option("--text-only", is_flag=True, default=False,
-              help="Only emit assistant text (no envelope, no tool calls).")
-@click.option("--timeout", type=int, default=300,
-              help="Overall timeout in seconds (default: 300).")
+@click.option(
+    "--message",
+    "-m",
+    default=None,
+    help="User message (creates a single user-role message).",
+)
+@click.option(
+    "--messages",
+    "messages_json",
+    default=None,
+    help="Full messages JSON array (mutually exclusive with -m).",
+)
+@click.option(
+    "--conversation",
+    "-c",
+    "conversation_id",
+    default=None,
+    help="Continue an existing conversation by id.",
+)
+@click.option(
+    "--save-conv",
+    is_flag=True,
+    default=False,
+    help="Save the returned conversation_id to local state "
+    "for future 'ar sa chat' resume.",
+)
+@click.option(
+    "--raw", is_flag=True, default=False, help="Force raw SSE JSON-line output."
+)
+@click.option(
+    "--text-only",
+    is_flag=True,
+    default=False,
+    help="Only emit assistant text (no envelope, no tool calls).",
+)
+@click.option(
+    "--timeout",
+    type=int,
+    default=300,
+    help="Overall timeout in seconds (default: 300).",
+)
 @click.pass_context
 @handle_errors
-def invoke_cmd(ctx, name, message, messages_json, conversation_id,
-               save_conv, raw, text_only, timeout):
+def invoke_cmd(
+    ctx,
+    name,
+    message,
+    messages_json,
+    conversation_id,
+    save_conv,
+    raw,
+    text_only,
+    timeout,
+):
     """Invoke a super agent once and stream the response."""
     messages = _parse_messages(message, messages_json)
     try:
@@ -77,7 +108,7 @@ def invoke_cmd(ctx, name, message, messages_json, conversation_id,
             is_tty=sys.stdout.isatty(), raw=raw, text_only=text_only
         )
     except ValueError as e:
-        raise click.UsageError(str(e))
+        raise click.UsageError(str(e)) from e
 
     profile, region = ctx_cfg(ctx)
     cfg = build_sdk_config(profile_name=profile, region=region)

@@ -6,7 +6,6 @@ from agentrun_cli.main import main
 
 
 class TestMainEntryPoint:
-
     def test_main_function_directly(self):
         """Call main() directly — it delegates to cli()."""
         with patch("agentrun_cli.main.cli") as mock_cli:

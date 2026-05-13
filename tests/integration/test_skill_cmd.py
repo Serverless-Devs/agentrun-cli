@@ -9,10 +9,10 @@ from click.testing import CliRunner
 
 from agentrun_cli.main import cli
 
-
 # ---------------------------------------------------------------------------
 # SDK mock helpers
 # ---------------------------------------------------------------------------
+
 
 def _mock_agentrun_models():
     """Build mock alibabacloud_agentrun20250910.models module."""
@@ -56,8 +56,8 @@ def _patch_sdk_config():
 # Help
 # ---------------------------------------------------------------------------
 
-class TestSkillHelp:
 
+class TestSkillHelp:
     def test_skill_help(self):
         runner = CliRunner()
         result = runner.invoke(cli, ["skill", "--help"])
@@ -77,8 +77,8 @@ class TestSkillHelp:
 # Control-plane CRUD
 # ---------------------------------------------------------------------------
 
-class TestSkillCreate:
 
+class TestSkillCreate:
     def test_create_skill(self):
         mock_mod = _mock_agentrun_models()
         client = MagicMock()
@@ -87,9 +87,16 @@ class TestSkillCreate:
             body=SimpleNamespace(data=data)
         )
 
-        with _patch_inner_client(client), \
-             patch.dict("sys.modules", {"alibabacloud_agentrun20250910": MagicMock(),
-                                        "alibabacloud_agentrun20250910.models": mock_mod}):
+        with (
+            _patch_inner_client(client),
+            patch.dict(
+                "sys.modules",
+                {
+                    "alibabacloud_agentrun20250910": MagicMock(),
+                    "alibabacloud_agentrun20250910.models": mock_mod,
+                },
+            ),
+        ):
             runner = CliRunner()
             with runner.isolated_filesystem():
                 os.makedirs("my-skill")
@@ -97,9 +104,17 @@ class TestSkillCreate:
                     f.write("---\ndescription: A test skill\n---\n# Skill\n")
                 with open("my-skill/main.py", "w") as f:
                     f.write("print('hello')")
-                result = runner.invoke(cli, [
-                    "skill", "create", "--name", "new-skill", "--code-dir", "my-skill",
-                ])
+                result = runner.invoke(
+                    cli,
+                    [
+                        "skill",
+                        "create",
+                        "--name",
+                        "new-skill",
+                        "--code-dir",
+                        "my-skill",
+                    ],
+                )
         assert result.exit_code == 0, result.output
         out = json.loads(result.output)
         assert out["tool_name"] == "new-skill"
@@ -112,9 +127,16 @@ class TestSkillCreate:
             body=SimpleNamespace(data=data)
         )
 
-        with _patch_inner_client(client), \
-             patch.dict("sys.modules", {"alibabacloud_agentrun20250910": MagicMock(),
-                                        "alibabacloud_agentrun20250910.models": mock_mod}):
+        with (
+            _patch_inner_client(client),
+            patch.dict(
+                "sys.modules",
+                {
+                    "alibabacloud_agentrun20250910": MagicMock(),
+                    "alibabacloud_agentrun20250910.models": mock_mod,
+                },
+            ),
+        ):
             runner = CliRunner()
             with runner.isolated_filesystem():
                 os.makedirs("my-skill")
@@ -122,15 +144,23 @@ class TestSkillCreate:
                     f.write("# Hello\n")
                 with open("config.json", "w") as f:
                     json.dump({"tool_name": "from-file", "description": "from file"}, f)
-                result = runner.invoke(cli, [
-                    "skill", "create", "--name", "from-file",
-                    "--code-dir", "my-skill", "--from-file", "config.json",
-                ])
+                result = runner.invoke(
+                    cli,
+                    [
+                        "skill",
+                        "create",
+                        "--name",
+                        "from-file",
+                        "--code-dir",
+                        "my-skill",
+                        "--from-file",
+                        "config.json",
+                    ],
+                )
         assert result.exit_code == 0, result.output
 
 
 class TestSkillList:
-
     def test_list_skills(self):
         mock_mod = _mock_agentrun_models()
         client = MagicMock()
@@ -140,9 +170,16 @@ class TestSkillList:
         body = SimpleNamespace(data=items_container)
         client.list_tools_with_options.return_value = SimpleNamespace(body=body)
 
-        with _patch_inner_client(client), \
-             patch.dict("sys.modules", {"alibabacloud_agentrun20250910": MagicMock(),
-                                        "alibabacloud_agentrun20250910.models": mock_mod}):
+        with (
+            _patch_inner_client(client),
+            patch.dict(
+                "sys.modules",
+                {
+                    "alibabacloud_agentrun20250910": MagicMock(),
+                    "alibabacloud_agentrun20250910.models": mock_mod,
+                },
+            ),
+        ):
             runner = CliRunner()
             result = runner.invoke(cli, ["skill", "list"])
         assert result.exit_code == 0, result.output
@@ -156,20 +193,30 @@ class TestSkillList:
         body = SimpleNamespace(data=items_container)
         client.list_tools_with_options.return_value = SimpleNamespace(body=body)
 
-        with _patch_inner_client(client), \
-             patch.dict("sys.modules", {"alibabacloud_agentrun20250910": MagicMock(),
-                                        "alibabacloud_agentrun20250910.models": mock_mod}):
+        with (
+            _patch_inner_client(client),
+            patch.dict(
+                "sys.modules",
+                {
+                    "alibabacloud_agentrun20250910": MagicMock(),
+                    "alibabacloud_agentrun20250910.models": mock_mod,
+                },
+            ),
+        ):
             runner = CliRunner()
-            result = runner.invoke(cli, ["skill", "list", "--page-number", "2", "--page-size", "5"])
+            result = runner.invoke(
+                cli, ["skill", "list", "--page-number", "2", "--page-size", "5"]
+            )
         assert result.exit_code == 0, result.output
 
 
 class TestSkillGet:
-
     def test_get_skill(self):
         tool_obj = _make_tool_obj(tool_name="web-scraper")
-        with _patch_sdk_config(), \
-             patch("agentrun.tool.Tool.get_by_name", return_value=tool_obj):
+        with (
+            _patch_sdk_config(),
+            patch("agentrun.tool.Tool.get_by_name", return_value=tool_obj),
+        ):
             runner = CliRunner()
             result = runner.invoke(cli, ["skill", "get", "--name", "web-scraper"])
         assert result.exit_code == 0, result.output
@@ -178,7 +225,6 @@ class TestSkillGet:
 
 
 class TestSkillDelete:
-
     def test_delete_skill(self):
         client = MagicMock()
         with _patch_inner_client(client):
@@ -191,12 +237,13 @@ class TestSkillDelete:
 
 
 class TestSkillDownload:
-
     def test_download_skill(self):
         tool_obj = MagicMock()
         tool_obj.download_skill.return_value = ".skills/web-scraper"
-        with _patch_sdk_config(), \
-             patch("agentrun.tool.Tool.get_by_name", return_value=tool_obj):
+        with (
+            _patch_sdk_config(),
+            patch("agentrun.tool.Tool.get_by_name", return_value=tool_obj),
+        ):
             runner = CliRunner()
             result = runner.invoke(cli, ["skill", "download", "--name", "web-scraper"])
         assert result.exit_code == 0, result.output
@@ -209,14 +256,19 @@ class TestSkillDownload:
 # Local-side (data plane)
 # ---------------------------------------------------------------------------
 
-class TestSkillScan:
 
+class TestSkillScan:
     def test_scan(self):
-        s1 = SimpleNamespace(name="s1", description="Skill 1", version="1.0", path="/skills/s1")
+        s1 = SimpleNamespace(
+            name="s1", description="Skill 1", version="1.0", path="/skills/s1"
+        )
         mock_loader = MagicMock()
         mock_loader.scan_skills.return_value = [s1]
 
-        with patch("agentrun.integration.utils.skill_loader.SkillLoader", return_value=mock_loader):
+        with patch(
+            "agentrun.integration.utils.skill_loader.SkillLoader",
+            return_value=mock_loader,
+        ):
             runner = CliRunner()
             result = runner.invoke(cli, ["skill", "scan", "--dir", "/skills"])
         assert result.exit_code == 0, result.output
@@ -226,16 +278,22 @@ class TestSkillScan:
 
 
 class TestSkillLoad:
-
     def test_load_found(self):
         detail = SimpleNamespace(
-            name="web-scraper", description="A scraper", version="1.0",
-            path="/skills/web-scraper", instruction="Do scraping", files=["scraper.py"],
+            name="web-scraper",
+            description="A scraper",
+            version="1.0",
+            path="/skills/web-scraper",
+            instruction="Do scraping",
+            files=["scraper.py"],
         )
         mock_loader = MagicMock()
         mock_loader.load_skill.return_value = detail
 
-        with patch("agentrun.integration.utils.skill_loader.SkillLoader", return_value=mock_loader):
+        with patch(
+            "agentrun.integration.utils.skill_loader.SkillLoader",
+            return_value=mock_loader,
+        ):
             runner = CliRunner()
             result = runner.invoke(cli, ["skill", "load", "--name", "web-scraper"])
         assert result.exit_code == 0, result.output
@@ -247,42 +305,67 @@ class TestSkillLoad:
         mock_loader = MagicMock()
         mock_loader.load_skill.return_value = None
 
-        with patch("agentrun.integration.utils.skill_loader.SkillLoader", return_value=mock_loader):
+        with patch(
+            "agentrun.integration.utils.skill_loader.SkillLoader",
+            return_value=mock_loader,
+        ):
             runner = CliRunner()
             result = runner.invoke(cli, ["skill", "load", "--name", "nope"])
         assert result.exit_code != 0
 
 
 class TestSkillReadFile:
-
     def test_read_file(self):
         mock_loader = MagicMock()
-        mock_loader._read_skill_file_func.return_value = json.dumps({"content": "x = 1"})
+        mock_loader._read_skill_file_func.return_value = json.dumps(
+            {"content": "x = 1"}
+        )
 
-        with patch("agentrun.integration.utils.skill_loader.SkillLoader", return_value=mock_loader):
+        with patch(
+            "agentrun.integration.utils.skill_loader.SkillLoader",
+            return_value=mock_loader,
+        ):
             runner = CliRunner()
-            result = runner.invoke(cli, [
-                "skill", "read-file", "--name", "s", "--path", "main.py",
-            ])
+            result = runner.invoke(
+                cli,
+                [
+                    "skill",
+                    "read-file",
+                    "--name",
+                    "s",
+                    "--path",
+                    "main.py",
+                ],
+            )
         assert result.exit_code == 0, result.output
         assert "x = 1" in result.output
 
 
 class TestSkillExec:
-
     def test_exec(self):
         mock_loader = MagicMock()
         mock_loader._execute_command_func.return_value = json.dumps(
             {"stdout": "hello\n", "stderr": "", "exit_code": 0}
         )
 
-        with patch("agentrun.integration.utils.skill_loader.SkillLoader", return_value=mock_loader):
+        with patch(
+            "agentrun.integration.utils.skill_loader.SkillLoader",
+            return_value=mock_loader,
+        ):
             runner = CliRunner()
             with runner.isolated_filesystem():
                 os.makedirs(".skills/my-skill")
-                result = runner.invoke(cli, [
-                    "skill", "exec", "--name", "my-skill", "--command", "echo hello",
-                ])
+                result = runner.invoke(
+                    cli,
+                    [
+                        "skill",
+                        "exec",
+                        "--name",
+                        "my-skill",
+                        "--command",
+                        "echo hello",
+                    ],
+                )
         assert result.exit_code == 0, result.output
         out = json.loads(result.output)
         assert out["exit_code"] == 0
@@ -290,7 +373,15 @@ class TestSkillExec:
     def test_exec_missing_dir(self):
         runner = CliRunner()
         with runner.isolated_filesystem():
-            result = runner.invoke(cli, [
-                "skill", "exec", "--name", "nope", "--command", "ls",
-            ])
+            result = runner.invoke(
+                cli,
+                [
+                    "skill",
+                    "exec",
+                    "--name",
+                    "nope",
+                    "--command",
+                    "ls",
+                ],
+            )
         assert result.exit_code != 0

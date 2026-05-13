@@ -22,8 +22,8 @@ def _make_stream(events, conv_id="conv-xxx"):
         async def __anext__(self):
             try:
                 return next(self._iter)
-            except StopIteration:
-                raise StopAsyncIteration
+            except StopIteration as exc:
+                raise StopAsyncIteration from exc
 
         async def aclose(self):
             pass
@@ -33,9 +33,7 @@ def _make_stream(events, conv_id="conv-xxx"):
 
 def _make_agent_mock(events, conv_id="conv-xxx"):
     agent = MagicMock()
-    agent.invoke_async = AsyncMock(
-        return_value=_make_stream(events, conv_id=conv_id)
-    )
+    agent.invoke_async = AsyncMock(return_value=_make_stream(events, conv_id=conv_id))
     return agent
 
 
@@ -60,20 +58,27 @@ def _patch_sdk_cfg():
 
 
 class TestInvokeRaw:
-
     def test_raw_output_per_event(self):
         events = [
             _ev("RUN_STARTED", '{"threadId":"t","runId":"r"}'),
             _ev("TEXT_MESSAGE_CONTENT", '{"delta":"hi"}'),
-            _ev("RUN_FINISHED", '{}'),
+            _ev("RUN_FINISHED", "{}"),
         ]
         agent = _make_agent_mock(events)
         client, patcher = _patch_client_get(agent)
         with _patch_sdk_cfg(), patcher:
             runner = CliRunner()
-            result = runner.invoke(cli, [
-                "sa", "invoke", "my-agent", "-m", "hello", "--raw",
-            ])
+            result = runner.invoke(
+                cli,
+                [
+                    "sa",
+                    "invoke",
+                    "my-agent",
+                    "-m",
+                    "hello",
+                    "--raw",
+                ],
+            )
         assert result.exit_code == 0, result.output
         lines = result.output.strip().splitlines()
         # 3 events + 1 envelope
@@ -86,54 +91,76 @@ class TestInvokeRaw:
 
 
 class TestInvokeTextOnly:
-
     def test_text_only_output(self):
         events = [
-            _ev("RUN_STARTED", '{}'),
+            _ev("RUN_STARTED", "{}"),
             _ev("TEXT_MESSAGE_CONTENT", '{"delta":"Hello "}'),
             _ev("TEXT_MESSAGE_CONTENT", '{"delta":"world"}'),
-            _ev("RUN_FINISHED", '{}'),
+            _ev("RUN_FINISHED", "{}"),
         ]
         agent = _make_agent_mock(events)
         client, patcher = _patch_client_get(agent)
         with _patch_sdk_cfg(), patcher:
             runner = CliRunner()
-            result = runner.invoke(cli, [
-                "sa", "invoke", "my-agent", "-m", "hi", "--text-only",
-            ])
+            result = runner.invoke(
+                cli,
+                [
+                    "sa",
+                    "invoke",
+                    "my-agent",
+                    "-m",
+                    "hi",
+                    "--text-only",
+                ],
+            )
         assert result.exit_code == 0, result.output
         assert "Hello world" in result.output
         assert "_meta" not in result.output
 
 
 class TestInvokeContinueConversation:
-
     def test_continue_passes_conversation_id(self):
-        events = [_ev("RUN_FINISHED", '{}')]
+        events = [_ev("RUN_FINISHED", "{}")]
         agent = _make_agent_mock(events)
         client, patcher = _patch_client_get(agent)
         with _patch_sdk_cfg(), patcher:
             runner = CliRunner()
-            result = runner.invoke(cli, [
-                "sa", "invoke", "my-agent", "-m", "hi",
-                "-c", "conv-prev-xxx", "--raw",
-            ])
+            result = runner.invoke(
+                cli,
+                [
+                    "sa",
+                    "invoke",
+                    "my-agent",
+                    "-m",
+                    "hi",
+                    "-c",
+                    "conv-prev-xxx",
+                    "--raw",
+                ],
+            )
         assert result.exit_code == 0, result.output
         call_kwargs = agent.invoke_async.await_args.kwargs
         assert call_kwargs["conversation_id"] == "conv-prev-xxx"
 
 
 class TestInvokeValidation:
-
     def test_message_and_messages_conflict(self):
         agent = _make_agent_mock([])
         client, patcher = _patch_client_get(agent)
         with _patch_sdk_cfg(), patcher:
             runner = CliRunner()
-            result = runner.invoke(cli, [
-                "sa", "invoke", "my-agent",
-                "-m", "hi", "--messages", '[{"role":"user","content":"x"}]',
-            ])
+            result = runner.invoke(
+                cli,
+                [
+                    "sa",
+                    "invoke",
+                    "my-agent",
+                    "-m",
+                    "hi",
+                    "--messages",
+                    '[{"role":"user","content":"x"}]',
+                ],
+            )
         assert result.exit_code != 0
 
     def test_neither_message_nor_messages(self):
@@ -149,9 +176,16 @@ class TestInvokeValidation:
         client, patcher = _patch_client_get(agent)
         with _patch_sdk_cfg(), patcher:
             runner = CliRunner()
-            result = runner.invoke(cli, [
-                "sa", "invoke", "my-agent", "--messages", "not json",
-            ])
+            result = runner.invoke(
+                cli,
+                [
+                    "sa",
+                    "invoke",
+                    "my-agent",
+                    "--messages",
+                    "not json",
+                ],
+            )
         assert result.exit_code != 0
 
     def test_messages_not_array(self):
@@ -159,9 +193,16 @@ class TestInvokeValidation:
         client, patcher = _patch_client_get(agent)
         with _patch_sdk_cfg(), patcher:
             runner = CliRunner()
-            result = runner.invoke(cli, [
-                "sa", "invoke", "my-agent", "--messages", '{"role":"user"}',
-            ])
+            result = runner.invoke(
+                cli,
+                [
+                    "sa",
+                    "invoke",
+                    "my-agent",
+                    "--messages",
+                    '{"role":"user"}',
+                ],
+            )
         assert result.exit_code != 0
 
     def test_raw_and_text_only_conflict(self):
@@ -169,30 +210,40 @@ class TestInvokeValidation:
         client, patcher = _patch_client_get(agent)
         with _patch_sdk_cfg(), patcher:
             runner = CliRunner()
-            result = runner.invoke(cli, [
-                "sa", "invoke", "my-agent", "-m", "hi",
-                "--raw", "--text-only",
-            ])
+            result = runner.invoke(
+                cli,
+                [
+                    "sa",
+                    "invoke",
+                    "my-agent",
+                    "-m",
+                    "hi",
+                    "--raw",
+                    "--text-only",
+                ],
+            )
         assert result.exit_code != 0
 
 
 class TestInvokeMessagesArray:
-
     def test_messages_json_array_parsed(self):
-        events = [_ev("RUN_FINISHED", '{}')]
+        events = [_ev("RUN_FINISHED", "{}")]
         agent = _make_agent_mock(events)
         client, patcher = _patch_client_get(agent)
         with _patch_sdk_cfg(), patcher:
             runner = CliRunner()
-            msgs = (
-                '[{"role":"user","content":"hi"},'
-                '{"role":"user","content":"ok"}]'
+            msgs = '[{"role":"user","content":"hi"},{"role":"user","content":"ok"}]'
+            result = runner.invoke(
+                cli,
+                [
+                    "sa",
+                    "invoke",
+                    "my-agent",
+                    "--messages",
+                    msgs,
+                    "--raw",
+                ],
             )
-            result = runner.invoke(cli, [
-                "sa", "invoke", "my-agent",
-                "--messages", msgs,
-                "--raw",
-            ])
         assert result.exit_code == 0, result.output
         call_kwargs = agent.invoke_async.await_args.kwargs
         assert len(call_kwargs["messages"]) == 2
@@ -200,33 +251,54 @@ class TestInvokeMessagesArray:
 
 
 class TestInvokeSaveConv:
-
     def test_save_conv_writes_state(self, tmp_path):
-        events = [_ev("RUN_FINISHED", '{}')]
+        events = [_ev("RUN_FINISHED", "{}")]
         agent = _make_agent_mock(events)
         client, patcher = _patch_client_get(agent)
         state_file = tmp_path / "state.json"
-        with _patch_sdk_cfg(), patcher, \
-             patch("agentrun_cli._utils.super_agent_state.STATE_FILE", state_file):
+        with (
+            _patch_sdk_cfg(),
+            patcher,
+            patch("agentrun_cli._utils.super_agent_state.STATE_FILE", state_file),
+        ):
             runner = CliRunner()
-            result = runner.invoke(cli, [
-                "sa", "invoke", "my-agent", "-m", "hi",
-                "--save-conv", "--raw",
-            ])
+            result = runner.invoke(
+                cli,
+                [
+                    "sa",
+                    "invoke",
+                    "my-agent",
+                    "-m",
+                    "hi",
+                    "--save-conv",
+                    "--raw",
+                ],
+            )
         assert result.exit_code == 0, result.output
         saved = json.loads(state_file.read_text())
         assert saved["agents"]["my-agent"]["last_conversation_id"] == "conv-xxx"
 
     def test_no_save_conv_no_write(self, tmp_path):
-        events = [_ev("RUN_FINISHED", '{}')]
+        events = [_ev("RUN_FINISHED", "{}")]
         agent = _make_agent_mock(events)
         client, patcher = _patch_client_get(agent)
         state_file = tmp_path / "state.json"
-        with _patch_sdk_cfg(), patcher, \
-             patch("agentrun_cli._utils.super_agent_state.STATE_FILE", state_file):
+        with (
+            _patch_sdk_cfg(),
+            patcher,
+            patch("agentrun_cli._utils.super_agent_state.STATE_FILE", state_file),
+        ):
             runner = CliRunner()
-            result = runner.invoke(cli, [
-                "sa", "invoke", "my-agent", "-m", "hi", "--raw",
-            ])
+            result = runner.invoke(
+                cli,
+                [
+                    "sa",
+                    "invoke",
+                    "my-agent",
+                    "-m",
+                    "hi",
+                    "--raw",
+                ],
+            )
         assert result.exit_code == 0, result.output
         assert not state_file.exists()

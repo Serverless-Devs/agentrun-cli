@@ -15,6 +15,7 @@ def _get_client_cls():
     global SuperAgentClient
     if SuperAgentClient is None:
         from agentrun.super_agent import SuperAgentClient as _Cls
+
         SuperAgentClient = _Cls
     return SuperAgentClient
 
@@ -44,9 +45,7 @@ def _serialize_conversation_info(info) -> dict:
         "updated_at": getattr(info, "updated_at", 0),
         "error_message": getattr(info, "error_message", None),
         "invoke_info": getattr(info, "invoke_info", None),
-        "messages": [
-            _serialize_message(m) for m in getattr(info, "messages", [])
-        ],
+        "messages": [_serialize_message(m) for m in getattr(info, "messages", [])],
         "params": getattr(info, "params", None),
     }
 
