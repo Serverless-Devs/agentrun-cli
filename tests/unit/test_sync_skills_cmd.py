@@ -1,4 +1,4 @@
-"""Unit tests for ``agentrun_cli.commands.sync_skills_cmd``."""
+"""Unit tests for ``agentrun_cli.commands.sync_skills_cmd`` (ar skill sync)."""
 
 import json
 import os
@@ -7,7 +7,7 @@ from unittest.mock import MagicMock, patch
 
 from click.testing import CliRunner
 
-from agentrun_cli.commands.sync_skills_cmd import sync_skills
+from agentrun_cli.commands.sync_skills_cmd import skill_sync
 
 
 def _mock_models_module():
@@ -40,25 +40,25 @@ class TestSyncSkillsValidation:
 
     def test_requires_tool_flag(self):
         runner = CliRunner()
-        result = runner.invoke(sync_skills, ["--user"])
+        result = runner.invoke(skill_sync, ["--user"])
         assert result.exit_code != 0
         assert "--tool" in result.output
 
     def test_rejects_invalid_tool_name(self):
         runner = CliRunner()
-        result = runner.invoke(sync_skills, ["--tool", "unknown-tool", "--user"])
+        result = runner.invoke(skill_sync, ["--tool", "unknown-tool", "--user"])
         assert result.exit_code != 0
 
     def test_requires_exactly_one_scope(self):
         runner = CliRunner()
-        result = runner.invoke(sync_skills, ["--tool", "claude-code"])
+        result = runner.invoke(skill_sync, ["--tool", "claude-code"])
         assert result.exit_code != 0
         assert "--user or --project" in result.output
 
     def test_rejects_both_scope_flags(self):
         runner = CliRunner()
         result = runner.invoke(
-            sync_skills, ["--tool", "claude-code", "--user", "--project"]
+            skill_sync, ["--tool", "claude-code", "--user", "--project"]
         )
         assert result.exit_code != 0
         assert "--user or --project" in result.output
@@ -87,7 +87,7 @@ class TestSyncSkillsCommand:
             runner = CliRunner()
             with runner.isolated_filesystem():
                 result = runner.invoke(
-                    sync_skills,
+                    skill_sync,
                     ["--tool", "claude-code", "--user"],
                     input="y\n",
                     env={"HOME": os.getcwd()},
@@ -136,7 +136,7 @@ class TestSyncSkillsCommand:
                     json.dump({"skill-a": {"updated_at": "2026-01-01"}}, f)
 
                 result = runner.invoke(
-                    sync_skills,
+                    skill_sync,
                     [
                         "--tool", "claude-code",
                         "--project",
@@ -173,7 +173,7 @@ class TestSyncSkillsCommand:
                 os.makedirs(".codex/skills/skill-old", exist_ok=True)
 
                 result = runner.invoke(
-                    sync_skills,
+                    skill_sync,
                     ["--tool", "codex", "--project", "--delete-unmanaged", "-y"],
                 )
 
@@ -201,7 +201,7 @@ class TestSyncSkillsCommand:
             runner = CliRunner()
             with runner.isolated_filesystem():
                 result = runner.invoke(
-                    sync_skills,
+                    skill_sync,
                     ["--tool", "cursor", "--project", "-y"],
                 )
 
@@ -228,7 +228,7 @@ class TestSyncSkillsCommand:
             runner = CliRunner()
             with runner.isolated_filesystem():
                 result = runner.invoke(
-                    sync_skills,
+                    skill_sync,
                     ["--tool", "github-copilot", "--user", "-y"],
                     env={"HOME": os.getcwd()},
                 )
@@ -256,7 +256,7 @@ class TestSyncSkillsCommand:
             runner = CliRunner()
             with runner.isolated_filesystem():
                 result = runner.invoke(
-                    sync_skills,
+                    skill_sync,
                     ["--tool", "qoder", "--project", "-y"],
                 )
 

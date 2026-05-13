@@ -1,4 +1,4 @@
-"""``ar sync-skills`` — sync platform skills to local AI tool directories."""
+"""``ar skill sync`` — sync platform skills to local AI tool directories."""
 
 import json
 import os
@@ -10,6 +10,7 @@ from agentrun_cli._utils.config import build_sdk_config
 from agentrun_cli._utils.error import handle_errors
 from agentrun_cli._utils.inner_client import get_agentrun_client
 from agentrun_cli._utils.output import format_output
+from agentrun_cli.commands.skill_cmd import skill_group
 
 _META_FILE_NAME = ".agentrun-sync-skills.json"
 
@@ -158,8 +159,8 @@ def _list_platform_skills(profile, region):
     return all_items
 
 
-@click.command(
-    "sync-skills",
+@skill_group.command(
+    "sync",
     help="Sync platform skills to a local AI tool skill directory.",
 )
 @click.option(
@@ -210,7 +211,7 @@ def _list_platform_skills(profile, region):
 )
 @click.pass_context
 @handle_errors
-def sync_skills(
+def skill_sync(
     ctx,
     ai_tool,
     user_scope,

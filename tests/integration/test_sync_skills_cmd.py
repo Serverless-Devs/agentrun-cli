@@ -1,4 +1,4 @@
-"""Integration tests for top-level ``ar sync-skills`` command."""
+"""Integration tests for ``ar skill sync`` command."""
 
 import json
 from types import SimpleNamespace
@@ -15,7 +15,7 @@ def _mock_models_module():
     return mod
 
 
-class TestSyncSkillsCommand:
+class TestSkillSyncCommand:
 
     @patch(
         "agentrun_cli.commands.sync_skills_cmd.build_sdk_config",
@@ -46,7 +46,7 @@ class TestSyncSkillsCommand:
             runner = CliRunner()
             result = runner.invoke(
                 cli,
-                ["sync-skills", "--tool", "claude-code", "--project", "-y"],
+                ["skill", "sync", "--tool", "claude-code", "--project", "-y"],
             )
 
         assert result.exit_code == 0, result.output
@@ -58,7 +58,7 @@ class TestSyncSkillsCommand:
         runner = CliRunner()
         result = runner.invoke(
             cli,
-            ["sync-skills", "--tool", "cursor"],
+            ["skill", "sync", "--tool", "cursor"],
         )
         assert result.exit_code != 0
         assert "--user or --project" in result.output
@@ -67,14 +67,14 @@ class TestSyncSkillsCommand:
         runner = CliRunner()
         result = runner.invoke(
             cli,
-            ["sync-skills", "--tool", "claude-code", "--user", "--project"],
+            ["skill", "sync", "--tool", "claude-code", "--user", "--project"],
         )
         assert result.exit_code != 0
         assert "--user or --project" in result.output
 
     def test_sync_help_lists_all_tools(self):
         runner = CliRunner()
-        result = runner.invoke(cli, ["sync-skills", "--help"])
+        result = runner.invoke(cli, ["skill", "sync", "--help"])
         assert result.exit_code == 0
         for tool in ("claude-code", "codex", "github-copilot", "cursor", "qoder"):
             assert tool in result.output

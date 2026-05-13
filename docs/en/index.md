@@ -196,6 +196,5 @@ Errors are written to stderr as JSON:
 | `model` |  | ModelService registration (Tongyi, OpenAI, DeepSeek, …) | [model.md](./model.md) |
 | `sandbox` | `sb` | Sandboxes plus file, process, context, template and browser sub-groups | [sandbox.md](./sandbox.md) |
 | `tool` |  | MCP and FunctionCall tools + sub-tool invocation | [tool.md](./tool.md) |
-| `skill` |  | Platform skill packages + local scan/load/exec | [skill.md](./skill.md) |
-| `sync-skills` |  | Sync platform skills to AI tool local skill directories (Claude Code, Codex, GitHub Copilot, Cursor, Qoder) | [sync-skills.md](./sync-skills.md) |
+| `skill` |  | Platform skill packages + local scan/load/exec + bulk sync to AI tool directories | [skill.md](./skill.md) |
 | `super-agent` | `sa` | Quickstart REPL, declarative deploy, CRUD, conversations | [super-agent.md](./super-agent.md) |
