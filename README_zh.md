@@ -180,7 +180,7 @@ ar sa invoke my-helper -m "帮我规划今天的事情" --text-only
 | `model` |  | 接入外部 LLM Provider 成为 ModelService | [en](./docs/en/model.md) · [zh](./docs/zh/model.md) |
 | `sandbox` | `sb` | 沙箱 + 文件、进程、上下文、模板、浏览器 | [en](./docs/en/sandbox.md) · [zh](./docs/zh/sandbox.md) |
 | `tool` |  | MCP 与 FunctionCall 工具 | [en](./docs/en/tool.md) · [zh](./docs/zh/tool.md) |
-| `skill` |  | 平台技能包 + 本地执行 | [en](./docs/en/skill.md) · [zh](./docs/zh/skill.md) |
+| `skill` |  | 平台技能包 + 本地执行 + 批量同步到 AI 工具目录 | [en](./docs/en/skill.md) · [zh](./docs/zh/skill.md) |
 | `super-agent` | `sa` | 一键拉起 / CRUD / 声明式 / 会话管理 | [en](./docs/en/super-agent.md) · [zh](./docs/zh/super-agent.md) |
 
 ## 文档

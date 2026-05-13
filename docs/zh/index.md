@@ -192,5 +192,5 @@ ar sandbox exec "$SANDBOX" --code "print('hello')"
 | `model` |  | 注册 ModelService（通义、OpenAI、DeepSeek……） | [model.md](./model.md) |
 | `sandbox` | `sb` | 沙箱以及 file / process / context / template / browser 子组 | [sandbox.md](./sandbox.md) |
 | `tool` |  | MCP 与 FunctionCall 工具 + 子工具调用 | [tool.md](./tool.md) |
-| `skill` |  | 平台侧技能包 + 本地 scan / load / exec | [skill.md](./skill.md) |
+| `skill` |  | 平台侧技能包 + 本地 scan / load / exec + 批量同步到 AI 工具目录 | [skill.md](./skill.md) |
 | `super-agent` | `sa` | 一键拉起 REPL、声明式部署、CRUD、会话管理 | [super-agent.md](./super-agent.md) |

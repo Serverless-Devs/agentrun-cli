@@ -15,6 +15,7 @@ Examples::
     ar skill read-file --name web-scraper --path scraper.py
     ar skill exec --name web-scraper --command "python scraper.py"
     ar skill delete --name web-scraper
+    ar skill sync --tool claude-code --user --workspace my-workspace
 """
 
 import base64
