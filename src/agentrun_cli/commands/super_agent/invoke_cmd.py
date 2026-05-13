@@ -35,7 +35,7 @@ def _parse_messages(message: str | None, messages_json: str | None) -> list[dict
         raise click.UsageError("One of --message/-m or --messages is required")
     if message:
         return [{"role": "user", "content": message}]
-    # At this point messages_json is guaranteed non-None by the guard above.
+    assert messages_json is not None  # noqa: S101 — narrowing for mypy; guarded above
     try:
         parsed = json.loads(messages_json)
     except (TypeError, ValueError) as e:

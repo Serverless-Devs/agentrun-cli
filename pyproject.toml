@@ -59,6 +59,7 @@ dev = [
 [tool.ruff]
 line-length = 88
 target-version = "py310"
+exclude = ["src/agentrun_cli/_version.py"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "W", "S", "B", "UP"]
