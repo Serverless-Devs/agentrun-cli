@@ -10,6 +10,8 @@ Exit-code convention:
     2 — bad input / resource already exists
     3 — authentication failure
     4 — server / unexpected error
+    5 — runtime/endpoint reached a terminal *_FAILED status
+    6 — polling timed out waiting for a terminal status
 """
 
 import functools
@@ -25,6 +27,8 @@ EXIT_NOT_FOUND = 1
 EXIT_BAD_INPUT = 2
 EXIT_AUTH_ERROR = 3
 EXIT_SERVER_ERROR = 4
+EXIT_RESOURCE_FAILED = 5
+EXIT_TIMEOUT = 6
 
 PREREQUISITES_HINT = (
     "Complete the one-time setup at "
@@ -42,6 +46,37 @@ _AUTH_PATTERNS = (
     "AliyunAgentRunSuperAgentRole",
     "EntityNotExist.Role",
 )
+
+
+class RuntimePollFailed(Exception):
+    """Raised when a runtime/endpoint reaches a *_FAILED terminal status."""
+
+    def __init__(
+        self,
+        resource_kind: str,
+        name: str,
+        status: str,
+        reason: str | None = None,
+    ):
+        self.resource_kind = resource_kind
+        self.name = name
+        self.status = status
+        self.reason = reason
+        super().__init__(
+            f"{resource_kind} {name!r} entered {status}: {reason or '(no reason)'}"
+        )
+
+
+class RuntimePollTimeout(Exception):
+    """Raised when polling exceeds the configured timeout."""
+
+    def __init__(self, resource_kind: str, name: str, elapsed: float):
+        self.resource_kind = resource_kind
+        self.name = name
+        self.elapsed = elapsed
+        super().__init__(
+            f"Timed out after {elapsed:.1f}s waiting for {resource_kind} {name!r}"
+        )
 
 
 def handle_errors(func: Callable) -> Callable:
@@ -71,6 +106,16 @@ def handle_errors(func: Callable) -> Callable:
             if any(pattern in msg for pattern in _AUTH_PATTERNS):
                 echo_error("AuthenticationFailed", msg, hint=PREREQUISITES_HINT)
                 sys.exit(EXIT_AUTH_ERROR)
+            if isinstance(exc, RuntimePollFailed):
+                echo_error(
+                    "RuntimePollFailed",
+                    str(exc),
+                    hint=None,
+                )
+                sys.exit(EXIT_RESOURCE_FAILED)
+            if isinstance(exc, RuntimePollTimeout):
+                echo_error("RuntimePollTimeout", str(exc))
+                sys.exit(EXIT_TIMEOUT)
 
             # Generic fallback
             echo_error("Error", msg)
