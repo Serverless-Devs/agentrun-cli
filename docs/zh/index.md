@@ -176,6 +176,8 @@ ar sandbox exec "$SANDBOX" --code "print('hello')"
 | `2` | 参数错误 | 缺少必填参数、非法 JSON、互斥参数同时出现、非 TTY 缺 model。 |
 | `3` | 认证失败 | AK/SK 无效或权限不足。 |
 | `4` | 服务端错误 / 超时 | 后端 API 异常、SSE 流中断、`apply --wait` 超时。 |
+| `5` | 资源失败 | `apply` 运行后 Runtime/Endpoint 进入 `*_FAILED`。 |
+| `6` | 轮询超时 | `apply --wait` 超过 `--timeout`。 |
 | `130` | 用户中断 | REPL 中连按两次 Ctrl+C 或 Ctrl+D。 |
 
 错误以 JSON 形式写到 stderr：
@@ -193,4 +195,5 @@ ar sandbox exec "$SANDBOX" --code "print('hello')"
 | `sandbox` | `sb` | 沙箱以及 file / process / context / template / browser 子组 | [sandbox.md](./sandbox.md) |
 | `tool` |  | MCP 与 FunctionCall 工具 + 子工具调用 | [tool.md](./tool.md) |
 | `skill` |  | 平台侧技能包 + 本地 scan / load / exec | [skill.md](./skill.md) |
+| `runtime` | `rt` | 声明式 Agent Runtime 部署（容器模式） | [runtime.md](./runtime.md) |
 | `super-agent` | `sa` | 一键拉起 REPL、声明式部署、CRUD、会话管理 | [super-agent.md](./super-agent.md) |

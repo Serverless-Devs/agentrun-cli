@@ -180,6 +180,8 @@ ar sandbox exec "$SANDBOX" --code "print('hello')"
 | `2` | Bad input | Missing required flag, invalid JSON, mutually-exclusive flags combined, non-TTY missing model. |
 | `3` | Authentication failure | Invalid AK/SK or insufficient permissions. |
 | `4` | Server error or timeout | Backend API exception, SSE stream error, `apply --wait` timeout. |
+| `5` | Resource failed | `apply` ran and the Runtime/Endpoint reached `*_FAILED`. |
+| `6` | Polling timeout | `apply --wait` exceeded `--timeout`. |
 | `130` | User interrupt | REPL received two Ctrl+C or Ctrl+D. |
 
 Errors are written to stderr as JSON:
@@ -197,4 +199,5 @@ Errors are written to stderr as JSON:
 | `sandbox` | `sb` | Sandboxes plus file, process, context, template and browser sub-groups | [sandbox.md](./sandbox.md) |
 | `tool` |  | MCP and FunctionCall tools + sub-tool invocation | [tool.md](./tool.md) |
 | `skill` |  | Platform skill packages + local scan/load/exec | [skill.md](./skill.md) |
+| `runtime` | `rt` | Declarative Agent Runtime deploy (container mode) | [runtime.md](./runtime.md) |
 | `super-agent` | `sa` | Quickstart REPL, declarative deploy, CRUD, conversations | [super-agent.md](./super-agent.md) |

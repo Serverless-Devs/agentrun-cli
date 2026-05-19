@@ -19,6 +19,7 @@ os.environ.setdefault("DISABLE_BREAKING_CHANGES_WARNING", "1")
 from agentrun_cli import __version__
 from agentrun_cli.commands.config_cmd import config_group
 from agentrun_cli.commands.model_cmd import model_group
+from agentrun_cli.commands.runtime import runtime_group
 from agentrun_cli.commands.sandbox import sandbox_group
 from agentrun_cli.commands.skill_cmd import skill_group
 from agentrun_cli.commands.super_agent import super_agent_group
@@ -108,6 +109,8 @@ cli.add_command(tool_group)
 cli.add_command(skill_group)
 cli.add_command(super_agent_group)
 cli._aliases["sa"] = "super-agent"
+cli.add_command(runtime_group)
+cli._aliases["rt"] = "runtime"
 
 
 def main():

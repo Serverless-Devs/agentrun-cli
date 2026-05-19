@@ -13,7 +13,8 @@ agents that you configure declaratively without writing or deploying any runtime
 
 - **One-command super agent** — `ar super-agent run` creates a hosted agent and drops you into a chat REPL in seconds.
 - **Declarative deployment** — Kubernetes-style YAML (`ar sa apply -f superagent.yaml`) for reproducible, version-controlled agents.
-- **Six resource groups** — `config`, `model`, `sandbox`, `tool`, `skill`, `super-agent`, all following the same `ar <group> <action>` pattern.
+- **Runtime declarative deploy** — `ar runtime apply -f runtime.yaml` builds an Agent Runtime from a container image and waits for it to reach `READY`.
+- **Seven resource groups** — `config`, `model`, `sandbox`, `tool`, `skill`, `super-agent`, `runtime`, all following the same `ar <group> <action>` pattern.
 - **Multi-profile config** — store multiple sets of credentials in `~/.agentrun/config.json` and switch with `--profile`.
 - **Multiple output formats** — `json` (default), `table`, `yaml`, and `quiet` for shell piping.
 - **Agent-friendly** — JSON-by-default output, deterministic exit codes, no interactive prompts when stdin isn't a TTY.
@@ -176,6 +177,20 @@ ar sa invoke my-helper -m "Plan my day" --text-only
 
 Multi-document YAMLs (`---` separated) let you deploy many agents in one call.
 
+### Deploy a runtime from an image
+
+```bash
+cat > runtime.yaml <<'EOF'
+apiVersion: agentrun/v1
+kind: AgentRuntime
+metadata: {name: my-agent}
+spec:
+  container:
+    image: registry.cn-hangzhou.aliyuncs.com/my-ns/my-agent:v1
+EOF
+ar runtime apply -f runtime.yaml
+```
+
 ## Command groups
 
 | Group | Alias | Purpose | Docs |
@@ -186,6 +201,7 @@ Multi-document YAMLs (`---` separated) let you deploy many agents in one call.
 | `tool` |  | MCP and FunctionCall tools | [en](./docs/en/tool.md) · [zh](./docs/zh/tool.md) |
 | `skill` |  | Platform skill packages + local execution | [en](./docs/en/skill.md) · [zh](./docs/zh/skill.md) |
 | `super-agent` | `sa` | Quickstart / CRUD / declarative / conversation | [en](./docs/en/super-agent.md) · [zh](./docs/zh/super-agent.md) |
+| `runtime` | `rt` | Declarative Agent Runtime deploy (container mode) | [en](./docs/en/runtime.md) · [zh](./docs/zh/runtime.md) |
 
 ## Documentation
 
