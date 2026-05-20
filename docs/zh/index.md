@@ -195,5 +195,5 @@ ar sandbox exec "$SANDBOX" --code "print('hello')"
 | `sandbox` | `sb` | 沙箱以及 file / process / context / template / browser 子组 | [sandbox.md](./sandbox.md) |
 | `tool` |  | MCP 与 FunctionCall 工具 + 子工具调用 | [tool.md](./tool.md) |
 | `skill` |  | 平台侧技能包 + 本地 scan / load / exec | [skill.md](./skill.md) |
-| `runtime` | `rt` | 声明式 Agent Runtime 部署（容器模式） | [runtime.md](./runtime.md) |
+| `runtime` | `rt` | 声明式 Agent Runtime 部署（容器模式） | [runtime.md](./runtime.md) · [YAML 参考](./runtime-yaml.md) |
 | `super-agent` | `sa` | 一键拉起 REPL、声明式部署、CRUD、会话管理 | [super-agent.md](./super-agent.md) |

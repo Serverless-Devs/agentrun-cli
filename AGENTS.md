@@ -14,8 +14,12 @@ make dev                  # Create venv + install editable with dev deps
 make install              # Install without dev deps
 
 # Development
-make lint                 # Run ruff linter
+make lint                 # Run ruff linter (ruff check)
+make format-check         # Verify code is ruff-formatted (no rewrite)
+.venv/bin/ruff format src/ tests/   # Apply ruff formatting in place
+.venv/bin/mypy src/agentrun_cli     # Static type check (CI runs this verbatim)
 make test                 # Run all tests
+make coverage             # Run tests with the >=95% coverage gate (matches CI)
 .venv/bin/pytest tests/test_cli_basic.py -v              # Run a single test file
 .venv/bin/pytest tests/test_cli_basic.py::TestConfigCommands::test_set_and_get -v  # Single test
 
@@ -40,6 +44,42 @@ make build-all            # macOS + Linux (via Docker)
 **Output** (`_utils/output.py`): Four modes — `json` (default), `table` (requires `rich`), `yaml`, `quiet` (prints only the primary identifier). All commands use `format_output(ctx, data)`.
 
 **Error handling** (`_utils/error.py`): The `@handle_errors` decorator catches SDK exceptions by class name pattern (no hard import) and maps them to deterministic exit codes (0=success, 1=not found, 2=bad input, 3=auth, 4=server). Errors go to stderr as JSON.
+
+## CI Lint Gate (must pass locally before pushing)
+
+The GitHub Actions `CI` workflow (`.github/workflows/ci.yml`) blocks merges on
+**all four** of these checks, run in dedicated jobs against Python 3.10–3.13.
+Run them locally before pushing — failing any one of them produces a red PR.
+
+| CI job | Command (run from repo root) | Make target |
+|---|---|---|
+| Lint (ruff) — lint rules | `ruff check src/ tests/` | `make lint` |
+| Lint (ruff) — format check | `ruff format --check src/ tests/` | `make format-check` |
+| Type check (mypy) | `mypy src/agentrun_cli` | *(no make target — run directly)* |
+| Test + coverage | `pytest tests/unit tests/integration --cov=agentrun_cli --cov-fail-under=95` | `make coverage` |
+
+Rules:
+
+- **Ruff format is non-negotiable.** CI runs `ruff format --check`, not
+  `ruff format` — it will not auto-fix. Run `ruff format src/ tests/` locally
+  (or `make format-check` to verify) before every commit. Configuration lives
+  in `pyproject.toml` under `[tool.ruff]`.
+- **Mypy must stay green.** Mypy config is in `pyproject.toml` under
+  `[tool.mypy]` (`python_version = "3.10"`, `warn_unreachable = true`,
+  `ignore_missing_imports = true`). Prefer narrowing types (`cast`, explicit
+  annotations) over `# type: ignore`; suppressions need a `[code]` selector
+  and a one-line comment justifying them.
+- **Coverage threshold is 95%.** Every code change must keep incremental
+  coverage at or above 95% — `make coverage` enforces it. A Claude Code hook
+  (`.claude/settings.json`) also runs this automatically after edits to
+  `src/` files. See [Integration Test Requirement](#integration-test-requirement)
+  for the test-coverage rules that feed this gate.
+- **No `--no-verify` / `--no-gpg-sign` shortcuts.** If a hook or lint check
+  fails, fix the underlying issue and create a new commit.
+
+The CI workflow also runs a Smoke job on macOS + Windows (`make build` of the
+PyInstaller binary) and a `pip-audit` security scan — both are advisory but
+should not regress.
 
 ## Testing
 
@@ -83,6 +123,8 @@ docs/
 │   ├── index.md     # install / auth / global options / output / exit codes / group nav
 │   ├── config.md    # one file per command group
 │   ├── model.md
+│   ├── runtime.md
+│   ├── runtime-yaml.md   # detailed YAML field reference for `ar runtime apply`
 │   ├── sandbox.md
 │   ├── skill.md
 │   ├── super-agent.md

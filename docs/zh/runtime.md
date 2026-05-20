@@ -176,4 +176,5 @@ ar runtime status my-agent --wait --timeout 20m
 
 ## YAML schema
 
-完整字段列表与校验规则见 `projects/agent-infra-build-runit/design/runtime-cli-design.md` §2。
+完整字段参考、CLI 自动注入规则、校验表与可直接复用的示例（最小、生产、自建 registry）
+见 [**runtime-yaml.md**](./runtime-yaml.md)。
