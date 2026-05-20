@@ -43,9 +43,13 @@ ar runtime apply -f FILE [--wait/--no-wait] [--timeout DURATION]
 | Flag | Type | Required | Default | Description |
 |------|------|----------|---------|-------------|
 | `-f`, `--file` | path | yes |  | YAML file path (supports multi-document). |
-| `--wait/--no-wait` | flag | no | `--wait` | Poll runtime + endpoints to final status. |
+| `--wait/--no-wait` | flag | no | `--wait` | Poll runtime + endpoints to final status. Under `--no-wait` the runtime is submitted but **endpoints are not reconciled** — the backend rejects endpoint create/update while the runtime is still `CREATING`/`UPDATING`. Re-run apply once it reaches `READY`. |
 | `--timeout` | duration | no | `10m` | Polling timeout. Accepts `Ns`, `Nm`, `Nh`, or bare seconds. |
 | `--prune-endpoints/--no-prune-endpoints` | flag | no | `--prune-endpoints` | Delete remote endpoints absent from the YAML. |
+
+The CLI injects sensible defaults for `cpu` (2 cores), `memory` (4096 MB) and
+`port` (9000) when the YAML omits them — the backend rejects null values for
+these three fields with HTTP 400.
 
 ### Examples
 

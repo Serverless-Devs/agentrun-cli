@@ -53,6 +53,40 @@ def test_create_input_injects_system_tag_and_container_artifact():
     assert inp.container_configuration.image == "img:v1"
     # code_configuration must not be set
     assert inp.code_configuration is None
+    # Defaults injected — backend rejects nulls for these three fields.
+    assert inp.cpu == 2.0
+    assert inp.memory == 4096
+    assert inp.port == 9000
+
+
+def test_create_input_user_values_override_defaults():
+    p = ParsedAgentRuntime(
+        name="my-agent",
+        container=ParsedContainer(image="img:v1"),
+        cpu=4,
+        memory=16384,
+        port=8080,
+    )
+    inp = to_runtime_create_input(p)
+    assert inp.cpu == 4
+    assert inp.memory == 16384
+    assert inp.port == 8080
+
+
+def test_create_input_container_port_wins_over_spec_port():
+    p = ParsedAgentRuntime(
+        name="my-agent",
+        container=ParsedContainer(image="img:v1", port=7777),
+        port=9000,
+    )
+    assert to_runtime_create_input(p).port == 7777
+
+
+def test_update_input_applies_same_defaults():
+    upd = to_runtime_update_input(_minimal_parsed())
+    assert upd.cpu == 2.0
+    assert upd.memory == 4096
+    assert upd.port == 9000
 
 
 def test_endpoints_none_injects_default():

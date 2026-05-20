@@ -17,7 +17,10 @@ from agentrun_cli._utils.agentruntime_yaml import (
 )
 from agentrun_cli._utils.runtime_constants import (
     ARTIFACT_TYPE_CONTAINER,
+    DEFAULT_CPU,
     DEFAULT_ENDPOINT_NAME,
+    DEFAULT_MEMORY_MB,
+    DEFAULT_PORT,
     DEFAULT_TARGET_VERSION,
     SYSTEM_TAG_CLI,
 )
@@ -119,6 +122,16 @@ def _build_container(p: ParsedContainer, m):
     )
 
 
+def _resolve_port(p: ParsedAgentRuntime) -> int:
+    """container.port > spec.port > DEFAULT_PORT — matches the documented
+    precedence and prevents the backend's 'Port is required' 400."""
+    if p.container.port is not None:
+        return p.container.port
+    if p.port is not None:
+        return p.port
+    return DEFAULT_PORT
+
+
 def to_runtime_create_input(p: ParsedAgentRuntime):
     m = _sdk_models()
     return m["create_input"](
@@ -129,9 +142,9 @@ def to_runtime_create_input(p: ParsedAgentRuntime):
         artifact_type=ARTIFACT_TYPE_CONTAINER,
         system_tags=[SYSTEM_TAG_CLI],
         container_configuration=_build_container(p.container, m),
-        cpu=p.cpu,
-        memory=p.memory,
-        port=p.port,
+        cpu=p.cpu if p.cpu is not None else DEFAULT_CPU,
+        memory=p.memory if p.memory is not None else DEFAULT_MEMORY_MB,
+        port=_resolve_port(p),
         disk_size=p.disk_size,
         enable_session_isolation=p.enable_session_isolation,
         protocol_configuration=_build_protocol(p.protocol, m),
@@ -157,9 +170,9 @@ def to_runtime_update_input(p: ParsedAgentRuntime):
         artifact_type=ARTIFACT_TYPE_CONTAINER,
         system_tags=[SYSTEM_TAG_CLI],
         container_configuration=_build_container(p.container, m),
-        cpu=p.cpu,
-        memory=p.memory,
-        port=p.port,
+        cpu=p.cpu if p.cpu is not None else DEFAULT_CPU,
+        memory=p.memory if p.memory is not None else DEFAULT_MEMORY_MB,
+        port=_resolve_port(p),
         disk_size=p.disk_size,
         enable_session_isolation=p.enable_session_isolation,
         protocol_configuration=_build_protocol(p.protocol, m),
