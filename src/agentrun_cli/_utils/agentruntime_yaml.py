@@ -35,7 +35,7 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass, field
-from typing import Any
+from typing import Any, cast
 
 import yaml
 
@@ -246,7 +246,9 @@ def _parse_container(raw: dict) -> ParsedContainer:
         raise YamlSchemaError("spec.container.image is required and must be a string.")
     image_registry_type = raw.get("imageRegistryType")
     if image_registry_type is not None and image_registry_type not in (
-        "ACR", "ACREE", "CUSTOM",
+        "ACR",
+        "ACREE",
+        "CUSTOM",
     ):
         raise YamlSchemaError(
             f"spec.container.imageRegistryType {image_registry_type!r} must be "
@@ -379,7 +381,9 @@ def _parse_log(raw) -> ParsedLog | None:
         )
     if project is None:
         return None
-    return ParsedLog(project=project, logstore=logstore)
+    # bool(project) == bool(logstore) was already enforced above, so when
+    # project is truthy logstore is too — narrow the type for mypy.
+    return ParsedLog(project=project, logstore=cast(str, logstore))
 
 
 def _parse_env(raw) -> dict[str, str] | None:

@@ -65,6 +65,7 @@ class TestCoerceStatus:
     def test_enum_like(self):
         class StatusLike:
             value = "READY"
+
         assert _coerce_status(StatusLike()) == "READY"
 
     def test_plain_string(self):

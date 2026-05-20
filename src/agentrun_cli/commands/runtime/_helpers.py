@@ -10,14 +10,15 @@ def ctx_cfg(ctx) -> tuple[str | None, str | None]:
     return obj.get("profile"), obj.get("region")
 
 
-def parse_duration(value: str) -> int:
+def parse_duration(value: str | int | None) -> int:
     """Parse ``10m`` / ``300s`` / ``1h`` / plain integer seconds → seconds."""
     if isinstance(value, int):
         return value
     if value is None:
         return 0
-    m = re.fullmatch(r"(\d+)\s*(s|sec|m|min|h|hr|hour)?", str(value).strip(),
-                     re.IGNORECASE)
+    m = re.fullmatch(
+        r"(\d+)\s*(s|sec|m|min|h|hr|hour)?", str(value).strip(), re.IGNORECASE
+    )
     if not m:
         raise ValueError(f"Invalid duration {value!r}")
     n = int(m.group(1))

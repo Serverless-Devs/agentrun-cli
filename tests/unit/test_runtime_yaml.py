@@ -770,6 +770,7 @@ def test_endpoint_minimal_keeps_target_version_none():
 
 def test_registry_password_not_in_repr():
     from agentrun_cli._utils.agentruntime_yaml import ParsedRegistryAuth
+
     auth = ParsedRegistryAuth(user_name="u", password="secret")  # noqa: S106
     rendered = repr(auth)
     assert "secret" not in rendered
@@ -777,20 +778,26 @@ def test_registry_password_not_in_repr():
 
 
 def test_image_registry_type_must_be_known():
-    text = _doc_with(spec={
-        "container": {"image": "img", "imageRegistryType": "acree"},
-    })
+    text = _doc_with(
+        spec={
+            "container": {"image": "img", "imageRegistryType": "acree"},
+        }
+    )
     with pytest.raises(YamlSchemaError, match="imageRegistryType"):
         parse_yaml_text(text)
 
 
 def test_endpoint_routing_non_numeric_weight():
-    text = _doc_with(spec={
-        "container": {"image": "img"},
-        "endpoints": [{
-            "name": "x",
-            "routing": [{"version": "1", "weight": "abc"}],
-        }],
-    })
+    text = _doc_with(
+        spec={
+            "container": {"image": "img"},
+            "endpoints": [
+                {
+                    "name": "x",
+                    "routing": [{"version": "1", "weight": "abc"}],
+                }
+            ],
+        }
+    )
     with pytest.raises(YamlSchemaError, match="weight"):
         parse_yaml_text(text)

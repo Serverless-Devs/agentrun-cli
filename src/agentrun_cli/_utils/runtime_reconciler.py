@@ -11,7 +11,7 @@ endpoints (default on; toggled by ``ar runtime apply --no-prune-endpoints``).
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Literal
+from typing import Any, Literal, cast
 
 from agentrun_cli._utils.agentruntime_yaml import (
     ParsedAgentRuntime,
@@ -114,7 +114,7 @@ def reconcile_endpoints(
     # to_create / to_update / noop
     create_inputs = to_endpoint_create_inputs(
         # Build a stub-parsed runtime carrying just .endpoints
-        _StubWithEndpoints(desired)
+        cast(ParsedAgentRuntime, _StubWithEndpoints(desired))
     )
     create_inputs_by_name = {ci.agent_runtime_endpoint_name: ci for ci in create_inputs}
 
@@ -143,7 +143,7 @@ def reconcile_endpoints(
     # prune
     if prune:
         for name, current in current_by_name.items():
-            if name in desired_names:
+            if name is None or name in desired_names:
                 continue
             runtime.delete_endpoint(current.agent_runtime_endpoint_id)
             actions.append(EndpointAction(action="delete", name=name, endpoint=current))

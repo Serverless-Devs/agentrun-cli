@@ -34,7 +34,10 @@ def _parse_file(path):
     ),
 )
 @click.option(
-    "-f", "--file", "file_path", required=True,
+    "-f",
+    "--file",
+    "file_path",
+    required=True,
     help="YAML file path (supports multi-document).",
 )
 @click.pass_context
@@ -45,15 +48,19 @@ def render_cmd(ctx, file_path):
     for parsed in docs:
         rt_input = to_runtime_create_input(parsed)
         ep_inputs = to_endpoint_create_inputs(parsed)
-        results.append({
-            "kind": "AgentRuntime",
-            "name": parsed.name,
-            "renderedCreateInput": (
-                rt_input.model_dump() if hasattr(rt_input, "model_dump") else rt_input
-            ),
-            "renderedEndpoints": [
-                ei.model_dump() if hasattr(ei, "model_dump") else ei
-                for ei in ep_inputs
-            ],
-        })
+        results.append(
+            {
+                "kind": "AgentRuntime",
+                "name": parsed.name,
+                "renderedCreateInput": (
+                    rt_input.model_dump()
+                    if hasattr(rt_input, "model_dump")
+                    else rt_input
+                ),
+                "renderedEndpoints": [
+                    ei.model_dump() if hasattr(ei, "model_dump") else ei
+                    for ei in ep_inputs
+                ],
+            }
+        )
     format_output(ctx, results)
