@@ -41,9 +41,12 @@ ar runtime apply -f FILE [--wait/--no-wait] [--timeout DURATION]
 | Flag | Type | Required | Default | Description |
 |------|------|----------|---------|-------------|
 | `-f`, `--file` | path | yes |  | YAML 文件路径（支持多文档）。 |
-| `--wait/--no-wait` | flag | no | `--wait` | 轮询 runtime + endpoints 到终态。 |
+| `--wait/--no-wait` | flag | no | `--wait` | 轮询 runtime + endpoints 到终态。`--no-wait` 时仅提交 runtime 创建/更新，**不会 reconcile endpoint** —— 后端在 runtime 处于 `CREATING`/`UPDATING` 时会拒绝 endpoint create/update。等 runtime 到 `READY` 后再 apply 一次即可。 |
 | `--timeout` | duration | no | `10m` | 轮询超时。支持 `Ns` / `Nm` / `Nh` 或裸秒数。 |
 | `--prune-endpoints/--no-prune-endpoints` | flag | no | `--prune-endpoints` | 删除远端存在但 YAML 缺失的 endpoint。 |
+
+YAML 中省略 `cpu` / `memory` / `port` 时，CLI 会自动注入合理默认值（2 核 /
+4096 MB / 9000）—— 后端对这三个字段的 null 会回复 HTTP 400。
 
 ### Examples
 

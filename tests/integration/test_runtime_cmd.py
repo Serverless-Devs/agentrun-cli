@@ -174,6 +174,10 @@ def test_apply_create_happy_path(monkeypatch):
     assert out[0]["action"] == "create"
     assert out[0]["runtime"]["name"] == "my-agent"
     fake_runtime_cls.create.assert_called_once()
+    # --no-wait must not touch endpoints — the backend rejects endpoint
+    # create while the runtime is CREATING/UPDATING.
+    created.create_endpoint.assert_not_called()
+    assert out[0]["endpoints"] == []
 
 
 def test_apply_update_path(monkeypatch):
@@ -205,6 +209,8 @@ def test_apply_update_path(monkeypatch):
     assert result.exit_code == 0, result.output
     out = json.loads(result.output)
     assert out[0]["action"] == "update"
+    # Default --wait path reconciles endpoints after runtime reaches READY.
+    existing.create_endpoint.assert_called_once()
 
 
 def test_apply_runtime_failed_exits_5(monkeypatch):

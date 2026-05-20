@@ -116,6 +116,7 @@ def apply_cmd(ctx, file_path, wait, timeout, prune_endpoints):
         rt_res = reconcile_runtime(parsed, client=runtime_cls)
         runtime = rt_res.runtime
 
+        ep_actions: list = []
         if wait:
             poll_until_final(
                 runtime,
@@ -123,14 +124,19 @@ def apply_cmd(ctx, file_path, wait, timeout, prune_endpoints):
                 cfg=poll_cfg,
                 on_tick=lambda r, e, p=parsed: _progress(sys.stderr, p, r, e),
             )
+            # Endpoint create/update is rejected by the backend with HTTP 400
+            # ("runtime must be in READY status") whenever the runtime isn't
+            # READY yet — so we only reconcile endpoints after the runtime has
+            # reached a final status. Under --no-wait the runtime is still in
+            # CREATING/UPDATING when we return, so we skip endpoint
+            # reconciliation entirely and the user can re-run apply once the
+            # runtime is READY.
+            ep_actions = reconcile_endpoints(
+                runtime,
+                desired=parsed.endpoints,
+                prune=prune_endpoints,
+            )
 
-        ep_actions = reconcile_endpoints(
-            runtime,
-            desired=parsed.endpoints,
-            prune=prune_endpoints,
-        )
-
-        if wait:
             in_flight = [
                 a.endpoint
                 for a in ep_actions
@@ -142,6 +148,12 @@ def apply_cmd(ctx, file_path, wait, timeout, prune_endpoints):
                 cfg=poll_cfg,
                 concurrency=ENDPOINT_POLL_CONCURRENCY,
                 on_tick=lambda r, e, p=parsed: _progress(sys.stderr, p, r, e),
+            )
+        elif sys.stderr.isatty():
+            sys.stderr.write(
+                f"[runtime {parsed.name}] --no-wait: runtime submitted; "
+                "endpoints will be reconciled on a subsequent apply once the "
+                "runtime reaches READY.\n"
             )
 
         results.append(

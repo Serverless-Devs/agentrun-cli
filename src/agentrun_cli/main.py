@@ -10,6 +10,7 @@ Usage::
     agentrun super-agent run
 """
 
+import logging
 import os
 
 import click
@@ -24,6 +25,24 @@ from agentrun_cli.commands.sandbox import sandbox_group
 from agentrun_cli.commands.skill_cmd import skill_group
 from agentrun_cli.commands.super_agent import super_agent_group
 from agentrun_cli.commands.tool_cmd import tool_group
+
+
+class _DropSdkValidationWarnings(logging.Filter):
+    """Drop the SDK's pydantic 'validate type failed' WARNINGs.
+
+    They fire from ``agentrun.utils.model.from_object`` whenever the SDK
+    deserializes a server-side record whose shape doesn't match its current
+    pydantic schema (e.g. a runtime someone else created with
+    ``codeConfiguration.language=java17`` or with an empty ``logConfiguration``).
+    That noise is not actionable for the CLI user — a single ``ar runtime list``
+    can emit a dozen of them. ``--debug`` re-enables full logging.
+    """
+
+    def filter(self, record: logging.LogRecord) -> bool:
+        return "validate type failed" not in record.getMessage()
+
+
+logging.getLogger("agentrun-logger").addFilter(_DropSdkValidationWarnings())
 
 
 class AliasGroup(click.Group):
@@ -95,9 +114,13 @@ def cli(ctx: click.Context, profile, region, output, debug):
     ctx.obj["output"] = output
 
     if debug:
-        import logging
-
         logging.basicConfig(level=logging.DEBUG)
+        # In debug mode users want to see the SDK's validation warnings, so
+        # strip the filter we installed at import time.
+        sdk_logger = logging.getLogger("agentrun-logger")
+        for f in list(sdk_logger.filters):
+            if isinstance(f, _DropSdkValidationWarnings):
+                sdk_logger.removeFilter(f)
 
 
 # Register sub-command groups
