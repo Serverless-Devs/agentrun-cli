@@ -199,5 +199,5 @@ Errors are written to stderr as JSON:
 | `sandbox` | `sb` | Sandboxes plus file, process, context, template and browser sub-groups | [sandbox.md](./sandbox.md) |
 | `tool` |  | MCP and FunctionCall tools + sub-tool invocation | [tool.md](./tool.md) |
 | `skill` |  | Platform skill packages + local scan/load/exec | [skill.md](./skill.md) |
-| `runtime` | `rt` | Declarative Agent Runtime deploy (container mode) | [runtime.md](./runtime.md) |
+| `runtime` | `rt` | Declarative Agent Runtime deploy (container mode) | [runtime.md](./runtime.md) · [YAML reference](./runtime-yaml.md) |
 | `super-agent` | `sa` | Quickstart REPL, declarative deploy, CRUD, conversations | [super-agent.md](./super-agent.md) |

@@ -1,0 +1,52 @@
+# Sample AgentRuntime spec for `ar runtime apply -f agentruntime.yaml`.
+# Full field reference: docs/en/runtime-yaml.md (zh: docs/zh/runtime-yaml.md)
+#
+# Quick usage:
+#   ar runtime render -f agentruntime.yaml   # dry-run, prints SDK input
+#   ar runtime apply  -f agentruntime.yaml   # create-or-update, waits to READY
+#
+# The CLI auto-injects system_tags=["x-agentrun-cli"] and artifact_type=Container.
+# When spec.endpoints is omitted, a default endpoint (targetVersion=LATEST) is
+# also injected — this sample defines an explicit one to make the shape clear.
+
+apiVersion: agentrun/v1
+kind: AgentRuntime
+
+metadata:
+  name: my-agent                          # required, matches [a-z0-9-]{1,63}
+  description: "Example AgentRuntime"
+  # workspace: default                    # optional; mutually exclusive with workspaceId
+
+spec:
+  container:
+    image: registry.cn-hangzhou.aliyuncs.com/my-ns/my-agent:v1
+    # command: ["python", "app.py"]       # optional, overrides image CMD/ENTRYPOINT
+    # port: 9000                          # optional; spec.port below also works
+
+  # ───── resources ─────
+  cpu: 2                                  # default 2 cores
+  memory: 4096                            # default 4096 MB
+  # diskSize: 10240                       # optional, MB (10 GiB)
+
+  # ───── network (default PUBLIC; uncomment for VPC) ─────
+  # network:
+  #   mode: PUBLIC_AND_PRIVATE
+  #   vpcId: vpc-xxxxxxxx
+  #   vswitchIds: [vsw-xxxxxxxx]
+  #   securityGroupId: sg-xxxxxxxx
+
+  # ───── log to SLS (project + logstore must be set together) ─────
+  # log:
+  #   project: my-agent-logs
+  #   logstore: runtime
+
+  # ───── environment variables ─────
+  env:
+    LOG_LEVEL: info
+
+  # ───── endpoints (omit to auto-inject `default` / LATEST) ─────
+  endpoints:
+    - name: default
+      targetVersion: LATEST
+      # scaling:
+      #   minInstances: 1

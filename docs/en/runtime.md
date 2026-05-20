@@ -179,5 +179,6 @@ ar runtime status my-agent --wait --timeout 20m
 
 ## YAML schema
 
-See `projects/agent-infra-build-runit/design/runtime-cli-design.md` §2 for the
-full field list and validation rules.
+See [**runtime-yaml.md**](./runtime-yaml.md) for the full field reference,
+CLI auto-injection rules, validation table, and copy-pasteable examples
+(minimal, production, and custom-registry).
