@@ -87,9 +87,7 @@ class FakeNotFound(Exception):
 
 def test_poll_until_deleted(monkeypatch):
     monkeypatch.setattr("time.sleep", lambda *_: None)
-    res = SimpleNamespace(
-        status="DELETING", status_reason=None, agent_runtime_name="x"
-    )
+    res = SimpleNamespace(status="DELETING", status_reason=None, agent_runtime_name="x")
     call_count = {"n": 0}
 
     def _refresh(*a, **k):
@@ -186,9 +184,7 @@ def test_poll_until_final_on_tick_invoked(monkeypatch):
 def test_poll_until_deleted_on_tick_and_timeout(monkeypatch):
     """Exercise on_tick + timeout branches in poll_until_deleted."""
     monkeypatch.setattr("time.sleep", lambda *_: None)
-    res = SimpleNamespace(
-        status="DELETING", status_reason=None, agent_runtime_name="x"
-    )
+    res = SimpleNamespace(status="DELETING", status_reason=None, agent_runtime_name="x")
     res.refresh = lambda *a, **k: res  # never raises
     fake_clock = iter([0.0, 11.0])  # passes timeout=10 on 2nd check
     monkeypatch.setattr("time.monotonic", lambda: next(fake_clock))
@@ -209,9 +205,7 @@ def test_poll_until_deleted_on_tick_and_timeout(monkeypatch):
 def test_poll_until_deleted_refresh_raises_other(monkeypatch):
     """Non-not-found exceptions from refresh propagate."""
     monkeypatch.setattr("time.sleep", lambda *_: None)
-    res = SimpleNamespace(
-        status="DELETING", status_reason=None, agent_runtime_name="x"
-    )
+    res = SimpleNamespace(status="DELETING", status_reason=None, agent_runtime_name="x")
 
     def _refresh(*a, **k):
         raise RuntimeError("boom")

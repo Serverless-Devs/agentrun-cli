@@ -43,6 +43,7 @@ def _lazy_sdk():
     global AgentRuntime
     if AgentRuntime is None:
         from agentrun.agent_runtime import AgentRuntime as _AR
+
         AgentRuntime = _AR
     return AgentRuntime
 
@@ -74,19 +75,28 @@ def _progress(stream, parsed, runtime, elapsed):
     ),
 )
 @click.option(
-    "-f", "--file", "file_path", required=True,
+    "-f",
+    "--file",
+    "file_path",
+    required=True,
     help="YAML file path (supports multi-document).",
 )
 @click.option(
-    "--wait/--no-wait", default=True, show_default=True,
+    "--wait/--no-wait",
+    default=True,
+    show_default=True,
     help="Poll until the runtime + endpoints reach a final status.",
 )
 @click.option(
-    "--timeout", default="10m", show_default=True,
+    "--timeout",
+    default="10m",
+    show_default=True,
     help="Polling timeout (e.g. 600s, 10m, 1h).",
 )
 @click.option(
-    "--prune-endpoints/--no-prune-endpoints", default=True, show_default=True,
+    "--prune-endpoints/--no-prune-endpoints",
+    default=True,
+    show_default=True,
     help="Delete endpoints that exist remotely but are absent from the YAML.",
 )
 @click.pass_context
@@ -108,35 +118,46 @@ def apply_cmd(ctx, file_path, wait, timeout, prune_endpoints):
 
         if wait:
             poll_until_final(
-                runtime, resource_kind="AgentRuntime", cfg=poll_cfg,
+                runtime,
+                resource_kind="AgentRuntime",
+                cfg=poll_cfg,
                 on_tick=lambda r, e, p=parsed: _progress(sys.stderr, p, r, e),
             )
 
         ep_actions = reconcile_endpoints(
-            runtime, desired=parsed.endpoints, prune=prune_endpoints,
+            runtime,
+            desired=parsed.endpoints,
+            prune=prune_endpoints,
         )
 
         if wait:
             in_flight = [
-                a.endpoint for a in ep_actions
+                a.endpoint
+                for a in ep_actions
                 if a.action in ("create", "update") and a.endpoint is not None
             ]
             poll_many_parallel(
-                in_flight, resource_kind="AgentRuntimeEndpoint",
-                cfg=poll_cfg, concurrency=ENDPOINT_POLL_CONCURRENCY,
+                in_flight,
+                resource_kind="AgentRuntimeEndpoint",
+                cfg=poll_cfg,
+                concurrency=ENDPOINT_POLL_CONCURRENCY,
                 on_tick=lambda r, e, p=parsed: _progress(sys.stderr, p, r, e),
             )
 
-        results.append({
-            "action": rt_res.action,
-            "runtime": serialize_runtime(runtime),
-            "endpoints": [
-                {**serialize_endpoint(a.endpoint or _empty_ep(a.name)),
-                 "action": a.action}
-                for a in ep_actions
-            ],
-            "elapsedSeconds": round(time.monotonic() - started, 3),
-        })
+        results.append(
+            {
+                "action": rt_res.action,
+                "runtime": serialize_runtime(runtime),
+                "endpoints": [
+                    {
+                        **serialize_endpoint(a.endpoint or _empty_ep(a.name)),
+                        "action": a.action,
+                    }
+                    for a in ep_actions
+                ],
+                "elapsedSeconds": round(time.monotonic() - started, 3),
+            }
+        )
 
     format_output(ctx, results, quiet_field="name")
 
@@ -149,4 +170,5 @@ def _empty_ep(name):
         status_reason = None
         endpoint_public_url = None
         target_version = None
+
     return _E()

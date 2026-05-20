@@ -25,6 +25,7 @@ def _lazy_sdk():
     global AgentRuntime
     if AgentRuntime is None:
         from agentrun.agent_runtime import AgentRuntime as _AR
+
         AgentRuntime = _AR
     return AgentRuntime
 
@@ -34,10 +35,18 @@ def _lazy_sdk():
     help="Show the status of an Agent Runtime (optionally wait for terminal).",
 )
 @click.argument("name")
-@click.option("--wait", is_flag=True, default=False,
-              help="Poll until the runtime reaches READY/*_FAILED.")
-@click.option("--timeout", default="10m", show_default=True,
-              help="Polling timeout (only with --wait).")
+@click.option(
+    "--wait",
+    is_flag=True,
+    default=False,
+    help="Poll until the runtime reaches READY/*_FAILED.",
+)
+@click.option(
+    "--timeout",
+    default="10m",
+    show_default=True,
+    help="Polling timeout (only with --wait).",
+)
 @click.pass_context
 @handle_errors
 def status_cmd(ctx, name, wait, timeout):
@@ -50,13 +59,18 @@ def status_cmd(ctx, name, wait, timeout):
         raise SystemExit(EXIT_NOT_FOUND)
     if wait:
         poll_until_final(
-            runtime, resource_kind="AgentRuntime",
-            cfg=PollConfig(timeout=float(
-                parse_duration(timeout) or DEFAULT_APPLY_TIMEOUT_SECONDS,
-            )),
-            on_tick=lambda r, e: sys.stderr.isatty() and sys.stderr.write(
-                f"[runtime {name}] status={getattr(r, 'status', None)} "
-                f"({e:.1f}s)\n"
+            runtime,
+            resource_kind="AgentRuntime",
+            cfg=PollConfig(
+                timeout=float(
+                    parse_duration(timeout) or DEFAULT_APPLY_TIMEOUT_SECONDS,
+                )
+            ),
+            on_tick=lambda r, e: (
+                sys.stderr.isatty()
+                and sys.stderr.write(
+                    f"[runtime {name}] status={getattr(r, 'status', None)} ({e:.1f}s)\n"
+                )
             ),
         )
     format_output(ctx, serialize_runtime(runtime), quiet_field="name")

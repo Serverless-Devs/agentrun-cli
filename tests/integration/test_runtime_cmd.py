@@ -20,6 +20,7 @@ from agentrun_cli.commands.runtime import runtime_group
 def _root():
     """Build a root CLI that mounts only ``runtime`` — keeps the test
     independent of PR6's main.py wiring."""
+
     @click.group()
     @click.option("--profile", default=None)
     @click.option("--region", default=None)
@@ -92,28 +93,33 @@ def test_render_invalid_yaml_exit_code_2():
     runner = CliRunner()
     with runner.isolated_filesystem():
         with open("bad.yaml", "w") as f:
-            f.write("apiVersion: wrong/v1\nkind: AgentRuntime\nmetadata: {name: x}\n"
-                    "spec: {container: {image: i}}\n")
+            f.write(
+                "apiVersion: wrong/v1\nkind: AgentRuntime\nmetadata: {name: x}\n"
+                "spec: {container: {image: i}}\n"
+            )
         result = runner.invoke(_root(), ["runtime", "render", "-f", "bad.yaml"])
     assert result.exit_code == 2
 
 
 def _make_runtime(name="my-agent", status="READY", rid="ar-1"):
     return SimpleNamespace(
-        agent_runtime_name=name, agent_runtime_id=rid,
+        agent_runtime_name=name,
+        agent_runtime_id=rid,
         agent_runtime_arn=f"acs:{rid}",
         agent_runtime_version="1",
-        status=status, status_reason=None,
-        created_at="t0", last_updated_at="t1",
+        status=status,
+        status_reason=None,
+        created_at="t0",
+        last_updated_at="t1",
     )
 
 
-def _make_endpoint(name="default", status="READY", eid="ep-1",
-                   url="https://x/"):
+def _make_endpoint(name="default", status="READY", eid="ep-1", url="https://x/"):
     e = SimpleNamespace(
         agent_runtime_endpoint_name=name,
         agent_runtime_endpoint_id=eid,
-        status=status, status_reason=None,
+        status=status,
+        status_reason=None,
         endpoint_public_url=url,
         target_version="LATEST",
         description=None,
@@ -136,6 +142,7 @@ def test_apply_create_happy_path(monkeypatch):
     def _refresh(self=None, *a, **k):
         created.status = next(refresh_states, "READY")
         return created
+
     created.refresh = _refresh
 
     fake_runtime_cls.list_all.return_value = []
@@ -173,9 +180,9 @@ def test_apply_update_path(monkeypatch):
     monkeypatch.setattr("time.sleep", lambda *_: None)
     existing = _make_runtime(status="UPDATING")
     refresh_states = iter(["UPDATING", "READY"])
-    existing.refresh = lambda *a, **k: (setattr(existing, "status",
-                                                next(refresh_states, "READY"))
-                                        or existing)
+    existing.refresh = lambda *a, **k: (
+        setattr(existing, "status", next(refresh_states, "READY")) or existing
+    )
     existing.list_endpoints = MagicMock(return_value=[])
     existing.create_endpoint = MagicMock(return_value=_make_endpoint())
 
@@ -184,8 +191,10 @@ def test_apply_update_path(monkeypatch):
     rt_cls.update_by_id.return_value = existing
 
     with (
-        patch("agentrun_cli.commands.runtime.apply_cmd.build_sdk_config",
-              return_value=MagicMock()),
+        patch(
+            "agentrun_cli.commands.runtime.apply_cmd.build_sdk_config",
+            return_value=MagicMock(),
+        ),
         patch("agentrun_cli.commands.runtime.apply_cmd.AgentRuntime", rt_cls),
     ):
         runner = CliRunner()
@@ -208,8 +217,10 @@ def test_apply_runtime_failed_exits_5(monkeypatch):
     rt_cls.create.return_value = rt
 
     with (
-        patch("agentrun_cli.commands.runtime.apply_cmd.build_sdk_config",
-              return_value=MagicMock()),
+        patch(
+            "agentrun_cli.commands.runtime.apply_cmd.build_sdk_config",
+            return_value=MagicMock(),
+        ),
         patch("agentrun_cli.commands.runtime.apply_cmd.AgentRuntime", rt_cls),
     ):
         runner = CliRunner()
@@ -222,9 +233,10 @@ def test_apply_runtime_failed_exits_5(monkeypatch):
 
 def test_apply_timeout_exits_6(monkeypatch):
     import itertools
+
     monkeypatch.setattr("time.sleep", lambda *_: None)
     rt = _make_runtime(status="CREATING")
-    rt.refresh = lambda *a, **k: rt   # never advances
+    rt.refresh = lambda *a, **k: rt  # never advances
     # apply_cmd.started uses 1 tick; poll_until_final uses 1 for start +
     # >=2 for elapsed checks (first under timeout, second exceeds). Provide
     # an unbounded chain so any extra calls keep returning the timeout value.
@@ -236,8 +248,10 @@ def test_apply_timeout_exits_6(monkeypatch):
     rt_cls.create.return_value = rt
 
     with (
-        patch("agentrun_cli.commands.runtime.apply_cmd.build_sdk_config",
-              return_value=MagicMock()),
+        patch(
+            "agentrun_cli.commands.runtime.apply_cmd.build_sdk_config",
+            return_value=MagicMock(),
+        ),
         patch("agentrun_cli.commands.runtime.apply_cmd.AgentRuntime", rt_cls),
     ):
         runner = CliRunner()
@@ -245,7 +259,8 @@ def test_apply_timeout_exits_6(monkeypatch):
             with open("rt.yaml", "w") as f:
                 f.write(VALID_YAML)
             result = runner.invoke(
-                _root(), ["runtime", "apply", "-f", "rt.yaml", "--timeout", "1s"],
+                _root(),
+                ["runtime", "apply", "-f", "rt.yaml", "--timeout", "1s"],
             )
     assert result.exit_code == 6
 
@@ -255,8 +270,10 @@ def test_get_runtime():
     rt_cls = MagicMock()
     rt_cls.list_all.return_value = [rt]
     with (
-        patch("agentrun_cli.commands.runtime.crud_cmd.build_sdk_config",
-              return_value=MagicMock()),
+        patch(
+            "agentrun_cli.commands.runtime.crud_cmd.build_sdk_config",
+            return_value=MagicMock(),
+        ),
         patch("agentrun_cli.commands.runtime.crud_cmd.AgentRuntime", rt_cls),
     ):
         result = CliRunner().invoke(_root(), ["runtime", "get", "my-agent"])
@@ -269,8 +286,10 @@ def test_get_runtime_not_found_exit_1():
     rt_cls = MagicMock()
     rt_cls.list_all.return_value = []
     with (
-        patch("agentrun_cli.commands.runtime.crud_cmd.build_sdk_config",
-              return_value=MagicMock()),
+        patch(
+            "agentrun_cli.commands.runtime.crud_cmd.build_sdk_config",
+            return_value=MagicMock(),
+        ),
         patch("agentrun_cli.commands.runtime.crud_cmd.AgentRuntime", rt_cls),
     ):
         result = CliRunner().invoke(_root(), ["runtime", "get", "missing"])
@@ -284,8 +303,10 @@ def test_list_runtimes():
         _make_runtime("b", "CREATING", "ar-b"),
     ]
     with (
-        patch("agentrun_cli.commands.runtime.crud_cmd.build_sdk_config",
-              return_value=MagicMock()),
+        patch(
+            "agentrun_cli.commands.runtime.crud_cmd.build_sdk_config",
+            return_value=MagicMock(),
+        ),
         patch("agentrun_cli.commands.runtime.crud_cmd.AgentRuntime", rt_cls),
     ):
         result = CliRunner().invoke(_root(), ["runtime", "list"])
@@ -303,12 +324,15 @@ def test_list_runtimes_created_by_cli_filter():
     other.system_tags = ["something-else"]
     rt_cls.list_all.return_value = [cli_runtime, other]
     with (
-        patch("agentrun_cli.commands.runtime.crud_cmd.build_sdk_config",
-              return_value=MagicMock()),
+        patch(
+            "agentrun_cli.commands.runtime.crud_cmd.build_sdk_config",
+            return_value=MagicMock(),
+        ),
         patch("agentrun_cli.commands.runtime.crud_cmd.AgentRuntime", rt_cls),
     ):
         result = CliRunner().invoke(
-            _root(), ["runtime", "list", "--created-by-cli"],
+            _root(),
+            ["runtime", "list", "--created-by-cli"],
         )
     assert result.exit_code == 0
     out = json.loads(result.output)
@@ -319,12 +343,15 @@ def test_delete_idempotent_when_missing():
     rt_cls = MagicMock()
     rt_cls.list_all.return_value = []
     with (
-        patch("agentrun_cli.commands.runtime.delete_cmd.build_sdk_config",
-              return_value=MagicMock()),
+        patch(
+            "agentrun_cli.commands.runtime.delete_cmd.build_sdk_config",
+            return_value=MagicMock(),
+        ),
         patch("agentrun_cli.commands.runtime.delete_cmd.AgentRuntime", rt_cls),
     ):
         result = CliRunner().invoke(
-            _root(), ["runtime", "delete", "missing", "--yes"],
+            _root(),
+            ["runtime", "delete", "missing", "--yes"],
         )
     assert result.exit_code == 1  # ResourceNotFound
 
@@ -339,6 +366,7 @@ def test_delete_happy_path(monkeypatch):
             raise next(states)
         except StopIteration:
             return rt
+
     rt.refresh = _refresh
     rt.delete = MagicMock()
 
@@ -348,8 +376,10 @@ def test_delete_happy_path(monkeypatch):
     # The SystemExit module needs an is_not_found predicate. The integration
     # test points the predicate at the simulated exception's message.
     with (
-        patch("agentrun_cli.commands.runtime.delete_cmd.build_sdk_config",
-              return_value=MagicMock()),
+        patch(
+            "agentrun_cli.commands.runtime.delete_cmd.build_sdk_config",
+            return_value=MagicMock(),
+        ),
         patch("agentrun_cli.commands.runtime.delete_cmd.AgentRuntime", rt_cls),
         patch(
             "agentrun_cli.commands.runtime.delete_cmd._is_not_found",
@@ -357,7 +387,8 @@ def test_delete_happy_path(monkeypatch):
         ),
     ):
         result = CliRunner().invoke(
-            _root(), ["runtime", "delete", "my-agent", "--yes"],
+            _root(),
+            ["runtime", "delete", "my-agent", "--yes"],
         )
     assert result.exit_code == 0, result.output
     rt.delete.assert_called_once()
@@ -368,8 +399,10 @@ def test_status_no_wait_returns_current():
     rt_cls = MagicMock()
     rt_cls.list_all.return_value = [rt]
     with (
-        patch("agentrun_cli.commands.runtime.status_cmd.build_sdk_config",
-              return_value=MagicMock()),
+        patch(
+            "agentrun_cli.commands.runtime.status_cmd.build_sdk_config",
+            return_value=MagicMock(),
+        ),
         patch("agentrun_cli.commands.runtime.status_cmd.AgentRuntime", rt_cls),
     ):
         result = CliRunner().invoke(_root(), ["runtime", "status", "my-agent"])
@@ -382,17 +415,19 @@ def test_status_wait_until_ready(monkeypatch):
     monkeypatch.setattr("time.sleep", lambda *_: None)
     rt = _make_runtime(status="CREATING")
     states = iter(["CREATING", "READY"])
-    rt.refresh = lambda *a, **k: (setattr(rt, "status", next(states, "READY"))
-                                  or rt)
+    rt.refresh = lambda *a, **k: setattr(rt, "status", next(states, "READY")) or rt
     rt_cls = MagicMock()
     rt_cls.list_all.return_value = [rt]
     with (
-        patch("agentrun_cli.commands.runtime.status_cmd.build_sdk_config",
-              return_value=MagicMock()),
+        patch(
+            "agentrun_cli.commands.runtime.status_cmd.build_sdk_config",
+            return_value=MagicMock(),
+        ),
         patch("agentrun_cli.commands.runtime.status_cmd.AgentRuntime", rt_cls),
     ):
         result = CliRunner().invoke(
-            _root(), ["runtime", "status", "my-agent", "--wait"],
+            _root(),
+            ["runtime", "status", "my-agent", "--wait"],
         )
     assert result.exit_code == 0
     out = json.loads(result.output)

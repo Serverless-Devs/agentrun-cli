@@ -25,6 +25,7 @@ def _lazy_sdk():
     global AgentRuntime
     if AgentRuntime is None:
         from agentrun.agent_runtime import AgentRuntime as _AR
+
         AgentRuntime = _AR
     return AgentRuntime
 
@@ -53,11 +54,15 @@ def _progress(parsed_name, runtime, elapsed):
 @click.argument("name")
 @click.option("--wait/--no-wait", default=True, show_default=True)
 @click.option(
-    "--timeout", default="5m", show_default=True,
+    "--timeout",
+    default="5m",
+    show_default=True,
     help="Polling timeout (e.g. 300s, 5m).",
 )
 @click.option(
-    "--yes", is_flag=True, default=False,
+    "--yes",
+    is_flag=True,
+    default=False,
     help="Skip the interactive confirmation.",
 )
 @click.pass_context
@@ -75,11 +80,14 @@ def delete_cmd(ctx, name, wait, timeout, yes):
     runtime.delete()  # SDK chains endpoint deletes internally
     if wait:
         poll_until_deleted(
-            runtime, resource_kind="AgentRuntime",
+            runtime,
+            resource_kind="AgentRuntime",
             is_not_found=_is_not_found,
-            cfg=PollConfig(timeout=float(
-                parse_duration(timeout) or DEFAULT_DELETE_TIMEOUT_SECONDS,
-            )),
+            cfg=PollConfig(
+                timeout=float(
+                    parse_duration(timeout) or DEFAULT_DELETE_TIMEOUT_SECONDS,
+                )
+            ),
             on_tick=lambda r, e: _progress(name, r, e),
         )
     format_output(
