@@ -11,6 +11,11 @@ from agentrun_cli._utils.agentruntime_yaml import (
     YamlSchemaError,
     parse_yaml_file,
 )
+from agentrun_cli._utils.cloud_build import (
+    build_runtime_image,
+    load_dotenv,
+    serialize_cloud_build_result,
+)
 from agentrun_cli._utils.config import build_sdk_config
 from agentrun_cli._utils.error import EXIT_BAD_INPUT, handle_errors
 from agentrun_cli._utils.output import echo_error, format_output
@@ -103,8 +108,9 @@ def _progress(stream, parsed, runtime, elapsed):
 @handle_errors
 def apply_cmd(ctx, file_path, wait, timeout, prune_endpoints):
     runtime_cls = _lazy_sdk()
+    load_dotenv()
     profile, region = ctx_cfg(ctx)
-    build_sdk_config(profile_name=profile, region=region)
+    cfg = build_sdk_config(profile_name=profile, region=region)
 
     docs = _parse(file_path)
     timeout_seconds = parse_duration(timeout) or DEFAULT_APPLY_TIMEOUT_SECONDS
@@ -113,6 +119,7 @@ def apply_cmd(ctx, file_path, wait, timeout, prune_endpoints):
     results = []
     for parsed in docs:
         started = time.monotonic()
+        build_result = build_runtime_image(parsed, cfg)
         rt_res = reconcile_runtime(parsed, client=runtime_cls)
         runtime = rt_res.runtime
 
@@ -160,6 +167,11 @@ def apply_cmd(ctx, file_path, wait, timeout, prune_endpoints):
             {
                 "action": rt_res.action,
                 "runtime": serialize_runtime(runtime),
+                "cloudBuild": (
+                    serialize_cloud_build_result(build_result)
+                    if build_result is not None
+                    else None
+                ),
                 "endpoints": [
                     {
                         **serialize_endpoint(a.endpoint or _empty_ep(a.name)),

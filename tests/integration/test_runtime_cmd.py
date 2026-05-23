@@ -14,6 +14,7 @@ from unittest.mock import MagicMock, patch
 import click
 from click.testing import CliRunner
 
+from agentrun_cli._utils.cloud_build import CloudBuildError, CloudBuildResult
 from agentrun_cli.commands.runtime import runtime_group
 
 
@@ -40,6 +41,7 @@ def test_runtime_group_registered():
     result = CliRunner().invoke(_root(), ["runtime", "--help"])
     assert result.exit_code == 0
     assert "apply" in result.output
+    assert "cloud-build" in result.output
     assert "render" in result.output
 
 
@@ -51,6 +53,21 @@ metadata:
 spec:
   container:
     image: img:v1
+"""
+
+CLOUD_BUILD_YAML = """
+apiVersion: agentrun/v1
+kind: AgentRuntime
+metadata:
+  name: my-agent
+spec:
+  container:
+    image: registry.example.com/ns/app:v1
+    cloudBuild:
+      dir: .
+      setupScript: ""
+      baseContainerConfig:
+        image: registry.example.com/ns/worker:tag
 """
 
 
@@ -87,6 +104,103 @@ def test_render_outputs_rendered_input():
     assert out[0]["name"] == "my-agent"
     assert out[0]["renderedCreateInput"]["systemTags"] == ["x-agentrun-cli"]
     assert out[0]["renderedEndpoints"][0]["agentRuntimeEndpointName"] == "default"
+    assert out[0]["cloudBuildPlan"] is None
+
+
+def test_render_outputs_cloud_build_plan():
+    fake_input = MagicMock()
+    fake_input.model_dump.return_value = {"agentRuntimeName": "my-agent"}
+    with (
+        patch(
+            "agentrun_cli.commands.runtime.render_cmd.to_runtime_create_input",
+            return_value=fake_input,
+        ),
+        patch(
+            "agentrun_cli.commands.runtime.render_cmd.to_endpoint_create_inputs",
+            return_value=[],
+        ),
+    ):
+        runner = CliRunner()
+        with runner.isolated_filesystem():
+            with open("rt.yaml", "w") as f:
+                f.write(CLOUD_BUILD_YAML)
+            result = runner.invoke(_root(), ["runtime", "render", "-f", "rt.yaml"])
+    assert result.exit_code == 0, result.output
+    out = json.loads(result.output)
+    assert out[0]["cloudBuildPlan"]["image"] == "registry.example.com/ns/app:v1"
+    assert out[0]["cloudBuildPlan"]["setupScript"] == ""
+    assert (
+        out[0]["cloudBuildPlan"]["baseContainerConfig"]["image"]
+        == "registry.example.com/ns/worker:tag"
+    )
+
+
+def test_cloud_build_command_success():
+    result_obj = CloudBuildResult(
+        name="my-agent",
+        image="registry.example.com/ns/app:v1",
+        build_status="completed",
+        elapsed_seconds=0.1,
+    )
+    with (
+        patch(
+            "agentrun_cli.commands.runtime.cloud_build_cmd.build_sdk_config",
+            return_value=MagicMock(),
+        ),
+        patch(
+            "agentrun_cli.commands.runtime.cloud_build_cmd.build_runtime_image",
+            return_value=result_obj,
+        ) as build_mock,
+    ):
+        runner = CliRunner()
+        with runner.isolated_filesystem():
+            with open("rt.yaml", "w") as f:
+                f.write(CLOUD_BUILD_YAML)
+            result = runner.invoke(_root(), ["runtime", "cloud-build", "-f", "rt.yaml"])
+    assert result.exit_code == 0, result.output
+    out = json.loads(result.output)
+    assert out[0]["buildStatus"] == "completed"
+    build_mock.assert_called_once()
+
+
+def test_cloud_build_command_requires_cloud_build_block():
+    runner = CliRunner()
+    with runner.isolated_filesystem():
+        with open("rt.yaml", "w") as f:
+            f.write(VALID_YAML)
+        result = runner.invoke(_root(), ["runtime", "cloud-build", "-f", "rt.yaml"])
+    assert result.exit_code == 2
+
+
+def test_cloud_build_command_no_results_exit_code_2():
+    with (
+        patch(
+            "agentrun_cli.commands.runtime.cloud_build_cmd.build_sdk_config",
+            return_value=MagicMock(),
+        ),
+        patch(
+            "agentrun_cli.commands.runtime.cloud_build_cmd.build_runtime_image",
+            return_value=None,
+        ),
+    ):
+        runner = CliRunner()
+        with runner.isolated_filesystem():
+            with open("rt.yaml", "w") as f:
+                f.write(CLOUD_BUILD_YAML)
+            result = runner.invoke(_root(), ["runtime", "cloud-build", "-f", "rt.yaml"])
+    assert result.exit_code == 2
+
+
+def test_cloud_build_invalid_yaml_exit_code_2():
+    runner = CliRunner()
+    with runner.isolated_filesystem():
+        with open("bad.yaml", "w") as f:
+            f.write(
+                "apiVersion: wrong/v1\nkind: AgentRuntime\nmetadata: {name: x}\n"
+                "spec: {container: {image: i}}\n"
+            )
+        result = runner.invoke(_root(), ["runtime", "cloud-build", "-f", "bad.yaml"])
+    assert result.exit_code == 2
 
 
 def test_render_invalid_yaml_exit_code_2():
@@ -178,6 +292,84 @@ def test_apply_create_happy_path(monkeypatch):
     # create while the runtime is CREATING/UPDATING.
     created.create_endpoint.assert_not_called()
     assert out[0]["endpoints"] == []
+
+
+def test_apply_cloud_build_before_runtime_submit(monkeypatch):
+    monkeypatch.setattr("time.sleep", lambda *_: None)
+    events = []
+    fake_runtime_cls = MagicMock()
+    created = _make_runtime(status="CREATING")
+    created.refresh = lambda *a, **k: created
+    created.list_endpoints = MagicMock(return_value=[])
+    created.create_endpoint = MagicMock(return_value=_make_endpoint())
+
+    def fake_create(*_args, **_kwargs):
+        events.append("runtime")
+        return created
+
+    def fake_build(*_args, **_kwargs):
+        events.append("build")
+        return CloudBuildResult(
+            name="my-agent",
+            image="registry.example.com/ns/app:v1",
+            build_status="completed",
+            elapsed_seconds=0.1,
+        )
+
+    fake_runtime_cls.list_all.return_value = []
+    fake_runtime_cls.create.side_effect = fake_create
+
+    with (
+        patch(
+            "agentrun_cli.commands.runtime.apply_cmd.build_sdk_config",
+            return_value=MagicMock(),
+        ),
+        patch(
+            "agentrun_cli.commands.runtime.apply_cmd.build_runtime_image",
+            fake_build,
+        ),
+        patch(
+            "agentrun_cli.commands.runtime.apply_cmd.AgentRuntime",
+            fake_runtime_cls,
+        ),
+    ):
+        runner = CliRunner()
+        with runner.isolated_filesystem():
+            with open("rt.yaml", "w") as f:
+                f.write(CLOUD_BUILD_YAML)
+            result = runner.invoke(
+                _root(),
+                ["runtime", "apply", "-f", "rt.yaml", "--no-wait"],
+            )
+    assert result.exit_code == 0, result.output
+    assert events == ["build", "runtime"]
+    out = json.loads(result.output)
+    assert out[0]["cloudBuild"]["buildStatus"] == "completed"
+
+
+def test_apply_cloud_build_failure_skips_runtime():
+    fake_runtime_cls = MagicMock()
+    fake_runtime_cls.list_all.return_value = []
+
+    with (
+        patch(
+            "agentrun_cli.commands.runtime.apply_cmd.build_sdk_config",
+            return_value=MagicMock(),
+        ),
+        patch(
+            "agentrun_cli.commands.runtime.apply_cmd.build_runtime_image",
+            side_effect=CloudBuildError("build failed"),
+        ),
+        patch("agentrun_cli.commands.runtime.apply_cmd.AgentRuntime", fake_runtime_cls),
+    ):
+        runner = CliRunner()
+        with runner.isolated_filesystem():
+            with open("rt.yaml", "w") as f:
+                f.write(CLOUD_BUILD_YAML)
+            result = runner.invoke(_root(), ["runtime", "apply", "-f", "rt.yaml"])
+    assert result.exit_code == 4
+    fake_runtime_cls.list_all.assert_not_called()
+    fake_runtime_cls.create.assert_not_called()
 
 
 def test_apply_update_path(monkeypatch):
@@ -447,6 +639,7 @@ def test_real_cli_exposes_runtime_group():
     result = CliRunner().invoke(real_cli, ["runtime", "--help"])
     assert result.exit_code == 0
     assert "apply" in result.output
+    assert "cloud-build" in result.output
 
 
 def test_real_cli_exposes_rt_alias():

@@ -151,6 +151,95 @@ def test_container_full_fields():
     assert rt.container.acr_instance_id == "cri-xxx"
 
 
+def test_cloud_build_defaults_parsed():
+    text = _doc_with(
+        spec={
+            "container": {
+                "image": "registry.example.com/ns/app:v1",
+                "cloudBuild": {},
+            }
+        }
+    )
+    cloud_build = parse_yaml_text(text)[0].container.cloud_build
+    assert cloud_build is not None
+    assert cloud_build.dir == "."
+    assert cloud_build.setup_script == "scripts/setup.sh"
+    assert cloud_build.timeout_minutes == "20"
+    assert cloud_build.cpu == "4"
+    assert cloud_build.memory == "8192"
+
+
+def test_cloud_build_registry_parsed():
+    text = _doc_with(
+        spec={
+            "container": {
+                "image": "registry.example.com/ns/app:v1",
+                "cloudBuild": {
+                    "dir": "src",
+                    "setupScript": "",
+                    "timeoutMinutes": 30,
+                    "cpu": "8c",
+                    "memory": "16384",
+                    "region": "cn-shanghai",
+                    "registry": {"username": "u", "password": "p"},
+                    "baseContainerConfig": {
+                        "image": "registry.example.com/ns/worker:tag"
+                    },
+                },
+            }
+        }
+    )
+    cloud_build = parse_yaml_text(text)[0].container.cloud_build
+    assert cloud_build is not None
+    assert cloud_build.dir == "src"
+    assert cloud_build.setup_script == ""
+    assert cloud_build.timeout_minutes == "30"
+    assert cloud_build.cpu == "8c"
+    assert cloud_build.memory == "16384"
+    assert cloud_build.region == "cn-shanghai"
+    assert cloud_build.registry and cloud_build.registry.username == "u"
+    assert cloud_build.base_container_image == "registry.example.com/ns/worker:tag"
+
+
+def test_cloud_build_allows_image_without_prevalidation():
+    text = _doc_with(
+        spec={
+            "container": {
+                "image": "registry.example.com/ns/app",
+                "cloudBuild": {},
+            }
+        }
+    )
+    cloud_build = parse_yaml_text(text)[0].container.cloud_build
+    assert cloud_build is not None
+
+
+def test_cloud_build_rejects_registry_mode_field():
+    text = _doc_with(
+        spec={
+            "container": {
+                "image": "registry.example.com/ns/app:v1",
+                "cloudBuild": {"registryMode": "fc-registry"},
+            }
+        }
+    )
+    with pytest.raises(YamlSchemaError, match="unsupported field"):
+        parse_yaml_text(text)
+
+
+def test_cloud_build_rejects_acree_base_fields():
+    text = _doc_with(
+        spec={
+            "container": {
+                "image": "registry.example.com/ns/app:v1",
+                "cloudBuild": {"baseAcrInstanceId": "cri-xxx"},
+            }
+        }
+    )
+    with pytest.raises(YamlSchemaError, match="unsupported field"):
+        parse_yaml_text(text)
+
+
 def test_custom_registry_requires_config():
     text = _doc_with(
         spec={"container": {"image": "img", "imageRegistryType": "CUSTOM"}}

@@ -2,10 +2,11 @@
 
 # ar runtime
 
-Manage **Agent Runtimes** declaratively from a YAML file. The CLI only supports
-container-mode runtimes (you supply an OCI image; building the image is out of
-scope for this command group). Endpoints are embedded in the same YAML; the
-default behaviour is to inject one named `default` (`targetVersion=LATEST`).
+Manage **Agent Runtimes** declaratively from a YAML file. The CLI supports
+container-mode runtimes from an existing OCI image, and can optionally invoke a
+cloud image build before deployment through `spec.container.cloudBuild`.
+Endpoints are embedded in the same YAML; the default behaviour is to inject one
+named `default` (`targetVersion=LATEST`).
 
 Also available as the alias `ar rt`.
 
@@ -15,7 +16,8 @@ Also available as the alias `ar rt`.
 
 ## Commands
 
-- [apply](#apply) — create-or-update from YAML, with status polling.
+- [apply](#apply) — cloud-build when configured, then create-or-update from YAML.
+- [cloud-build](#cloud-build) — build images from YAML without deploying.
 - [render](#render) — dry-run validate + render to SDK input.
 - [get](#get) — fetch one runtime by name.
 - [list](#list) — list runtimes; filter by `--created-by-cli` or `--workspace`.
@@ -49,7 +51,10 @@ ar runtime apply -f FILE [--wait/--no-wait] [--timeout DURATION]
 
 The CLI injects sensible defaults for `cpu` (2 cores), `memory` (4096 MB) and
 `port` (9000) when the YAML omits them — the backend rejects null values for
-these three fields with HTTP 400.
+these three fields with HTTP 400. If `spec.container.cloudBuild` is present,
+`apply` invokes docker-image-builder before submitting the runtime, then deploys
+the same image reference. docker-image-builder skips existing target tags by
+default.
 
 ### Examples
 
@@ -65,6 +70,22 @@ spec:
 EOF
 ar runtime apply -f runtime.yaml
 
+# Build in the cloud, then deploy.
+cat > runtime-build.yaml <<EOF
+apiVersion: agentrun/v1
+kind: AgentRuntime
+metadata: {name: my-agent}
+spec:
+  container:
+    image: registry.cn-hangzhou.aliyuncs.com/my-ns/my-agent:v1
+    cloudBuild:
+      dir: .
+      setupScript: scripts/setup.sh
+      baseContainerConfig:
+        image: serverless-registry.cn-hangzhou.cr.aliyuncs.com/functionai/docker-image-builder-worker:20260514-111141-2d80effe
+EOF
+ar runtime apply -f runtime-build.yaml
+
 # Non-blocking submit (CI-friendly):
 ar runtime apply -f runtime.yaml --no-wait
 
@@ -73,6 +94,38 @@ ar runtime apply -f runtime.yaml --timeout 20m
 
 # Disable endpoint pruning when migrating between YAML files:
 ar runtime apply -f runtime.yaml --no-prune-endpoints
+```
+
+
+---
+
+## cloud-build
+
+```
+ar runtime cloud-build -f FILE
+```
+
+### Options
+
+| Flag | Type | Required | Default | Description |
+|------|------|----------|---------|-------------|
+| `-f`, `--file` | path | yes |  | YAML file path (supports multi-document). |
+
+Runs only the `spec.container.cloudBuild` step and does not create or update the
+runtime. For each document, the command invokes docker-image-builder and reports
+`completed` when the builder exits successfully. The builder skips existing
+target tags by default.
+
+`cloud-build` uses the same credentials as `apply`: AgentRun profile values for
+Aliyun UID/AK/SK, and `DOCKER_IMAGE_BUILDER_USERNAME` /
+`DOCKER_IMAGE_BUILDER_PASSWORD` for registry auth unless the YAML overrides them
+under `cloudBuild.registry`.
+
+### Examples
+
+```bash
+# Build only; do not deploy the runtime.
+ar runtime cloud-build -f runtime-build.yaml
 ```
 
 ---
@@ -91,8 +144,10 @@ ar runtime render -f FILE
 
 Validates the YAML, applies CLI auto-injection (`system_tags=["x-agentrun-cli"]`,
 `artifact_type=Container`, default endpoint when `spec.endpoints` is omitted),
-and prints the SDK create-input as JSON without calling the server. Use this to
-preview changes before `apply`.
+and prints the SDK create-input as JSON without calling the server. When the
+YAML includes `cloudBuild`, `render` also prints a `cloudBuildPlan` preview but
+does not check the registry or build anything. Use this to preview changes
+before `apply`.
 
 ---
 

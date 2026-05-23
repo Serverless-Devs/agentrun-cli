@@ -20,6 +20,9 @@ metadata:
 spec:
   container:
     image: registry.cn-hangzhou.aliyuncs.com/my-ns/my-agent:v1
+    # cloudBuild:                         # optional; build only if image tag is missing
+    #   dir: .                            # source directory uploaded to builder
+    #   setupScript: scripts/setup.sh     # empty string skips setup
     # command: ["python", "app.py"]       # optional, overrides image CMD/ENTRYPOINT
     # port: 9000                          # optional; spec.port below also works
 
