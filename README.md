@@ -13,7 +13,7 @@ agents that you configure declaratively without writing or deploying any runtime
 
 - **One-command super agent** — `ar super-agent run` creates a hosted agent and drops you into a chat REPL in seconds.
 - **Declarative deployment** — Kubernetes-style YAML (`ar sa apply -f superagent.yaml`) for reproducible, version-controlled agents.
-- **Runtime declarative deploy** — `ar runtime apply -f runtime.yaml` builds an Agent Runtime from a container image and waits for it to reach `READY`.
+- **Runtime declarative deploy** — `ar runtime apply -f runtime.yaml` deploys an Agent Runtime from an image, or invokes a cloud build first when the YAML defines `cloudBuild`.
 - **Seven resource groups** — `config`, `model`, `sandbox`, `tool`, `skill`, `super-agent`, `runtime`, all following the same `ar <group> <action>` pattern.
 - **Multi-profile config** — store multiple sets of credentials in `~/.agentrun/config.json` and switch with `--profile`.
 - **Multiple output formats** — `json` (default), `table`, `yaml`, and `quiet` for shell piping.
@@ -191,6 +191,29 @@ EOF
 ar runtime apply -f runtime.yaml
 ```
 
+To cloud-build the image before deploy, add `cloudBuild`. The target image is
+the same `spec.container.image`; docker-image-builder skips existing tags by
+default.
+
+```bash
+cat > runtime-build.yaml <<EOF
+apiVersion: agentrun/v1
+kind: AgentRuntime
+metadata: {name: my-agent}
+spec:
+  container:
+    image: registry.cn-hangzhou.aliyuncs.com/my-ns/my-agent:v1
+    cloudBuild:
+      dir: .
+      setupScript: scripts/setup.sh
+      baseContainerConfig:
+        image: serverless-registry.cn-hangzhou.cr.aliyuncs.com/functionai/docker-image-builder-worker:20260514-111141-2d80effe
+EOF
+ar runtime apply -f runtime-build.yaml
+# or build without deploying:
+# ar runtime cloud-build -f runtime-build.yaml
+```
+
 ## Command groups
 
 | Group | Alias | Purpose | Docs |
@@ -201,7 +224,7 @@ ar runtime apply -f runtime.yaml
 | `tool` |  | MCP and FunctionCall tools | [en](./docs/en/tool.md) · [zh](./docs/zh/tool.md) |
 | `skill` |  | Platform skill packages + local execution | [en](./docs/en/skill.md) · [zh](./docs/zh/skill.md) |
 | `super-agent` | `sa` | Quickstart / CRUD / declarative / conversation | [en](./docs/en/super-agent.md) · [zh](./docs/zh/super-agent.md) |
-| `runtime` | `rt` | Declarative Agent Runtime deploy (container mode) | [en](./docs/en/runtime.md) · [zh](./docs/zh/runtime.md) |
+| `runtime` | `rt` | Declarative Agent Runtime deploy and optional cloud image build | [en](./docs/en/runtime.md) · [zh](./docs/zh/runtime.md) |
 
 ## Documentation
 

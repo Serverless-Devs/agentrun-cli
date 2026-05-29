@@ -15,6 +15,9 @@ os.environ.setdefault("DISABLE_BREAKING_CHANGES_WARNING", "1")
 import click  # noqa: E402
 
 from agentrun_cli.commands.runtime import apply_cmd as _apply_mod  # noqa: E402
+from agentrun_cli.commands.runtime import (
+    cloud_build_cmd as _cloud_build_mod,  # noqa: E402
+)
 from agentrun_cli.commands.runtime import crud_cmd as _crud_mod  # noqa: E402
 from agentrun_cli.commands.runtime import delete_cmd as _delete_mod  # noqa: E402
 from agentrun_cli.commands.runtime import render_cmd as _render_mod  # noqa: E402
@@ -30,6 +33,7 @@ def runtime_group():
 
 
 runtime_group.add_command(_apply_mod.apply_cmd)
+runtime_group.add_command(_cloud_build_mod.cloud_build_cmd)
 runtime_group.add_command(_render_mod.render_cmd)
 runtime_group.add_command(_crud_mod.get_cmd)
 runtime_group.add_command(_crud_mod.list_cmd)
