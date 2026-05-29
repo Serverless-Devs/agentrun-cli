@@ -283,6 +283,8 @@ def _as_string(value: Any, where: str) -> str:
         value: Field value.
         where: Path used in error messages.
     """
+    if isinstance(value, bool):
+        raise YamlSchemaError(f"{where} must be a string or number.")
     if isinstance(value, (str, int, float)):
         return str(value)
     raise YamlSchemaError(f"{where} must be a string or number.")
