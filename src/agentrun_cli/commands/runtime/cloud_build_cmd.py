@@ -7,6 +7,7 @@ import sys
 import click
 
 from agentrun_cli._utils.agentruntime_yaml import (
+    ParsedAgentRuntime,
     YamlSchemaError,
     parse_yaml_file,
 )
@@ -34,6 +35,27 @@ def _parse_file(path: str):
         raise SystemExit(EXIT_BAD_INPUT) from exc
 
 
+def _require_cloud_build_blocks(docs: list[ParsedAgentRuntime]) -> None:
+    """Validate that all runtime documents declare cloud build config.
+
+    Args:
+        docs: Parsed runtime documents.
+    """
+    missing = [
+        f"Document #{idx + 1} runtime {parsed.name!r}"
+        for idx, parsed in enumerate(docs)
+        if parsed.container.cloud_build is None
+    ]
+    if not missing:
+        return
+    echo_error(
+        "InvalidYaml",
+        "All runtime documents must define spec.container.cloudBuild before "
+        f"cloud-build starts; missing: {'; '.join(missing)}.",
+    )
+    raise SystemExit(EXIT_BAD_INPUT)
+
+
 @click.command(
     "cloud-build",
     help="Build Agent Runtime images in the cloud from YAML.",
@@ -49,18 +71,14 @@ def _parse_file(path: str):
 @handle_errors
 def cloud_build_cmd(ctx, file_path):
     load_dotenv()
+    docs = _parse_file(file_path)
+    _require_cloud_build_blocks(docs)
+
     profile, region = ctx_cfg(ctx)
     cfg = build_sdk_config(profile_name=profile, region=region)
-    docs = _parse_file(file_path)
 
     results = []
     for parsed in docs:
-        if parsed.container.cloud_build is None:
-            echo_error(
-                "InvalidYaml",
-                f"runtime {parsed.name!r} does not define spec.container.cloudBuild.",
-            )
-            raise SystemExit(EXIT_BAD_INPUT)
         result = build_runtime_image(parsed, cfg)
         if result is None:
             continue

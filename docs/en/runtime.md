@@ -114,7 +114,9 @@ ar runtime cloud-build -f FILE
 Runs only the `spec.container.cloudBuild` step and does not create or update the
 runtime. For each document, the command invokes docker-image-builder and reports
 `completed` when the builder exits successfully. The builder skips existing
-target tags by default.
+target tags by default. For multi-document YAML (`---` separated), every
+document must define `spec.container.cloudBuild`; otherwise the command fails
+before invoking any builder process.
 
 `cloud-build` uses the same credentials as `apply`: AgentRun profile values for
 Aliyun UID/AK/SK, and `DOCKER_IMAGE_BUILDER_USERNAME` /

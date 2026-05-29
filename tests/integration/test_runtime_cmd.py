@@ -70,6 +70,20 @@ spec:
         image: registry.example.com/ns/worker:tag
 """
 
+MULTI_DOC_PARTIAL_CLOUD_BUILD_YAML = (
+    CLOUD_BUILD_YAML
+    + """
+---
+apiVersion: agentrun/v1
+kind: AgentRuntime
+metadata:
+  name: plain-agent
+spec:
+  container:
+    image: registry.example.com/ns/plain:v1
+"""
+)
+
 
 def test_render_outputs_rendered_input():
     fake_input = MagicMock()
@@ -170,6 +184,34 @@ def test_cloud_build_command_requires_cloud_build_block():
             f.write(VALID_YAML)
         result = runner.invoke(_root(), ["runtime", "cloud-build", "-f", "rt.yaml"])
     assert result.exit_code == 2
+
+
+def test_cloud_build_command_prescans_all_docs_before_building():
+    result_obj = CloudBuildResult(
+        name="my-agent",
+        image="registry.example.com/ns/app:v1",
+        build_status="completed",
+        elapsed_seconds=0.1,
+    )
+    with (
+        patch(
+            "agentrun_cli.commands.runtime.cloud_build_cmd.build_sdk_config",
+            return_value=MagicMock(),
+        ) as cfg_mock,
+        patch(
+            "agentrun_cli.commands.runtime.cloud_build_cmd.build_runtime_image",
+            return_value=result_obj,
+        ) as build_mock,
+    ):
+        runner = CliRunner()
+        with runner.isolated_filesystem():
+            with open("rt.yaml", "w") as f:
+                f.write(MULTI_DOC_PARTIAL_CLOUD_BUILD_YAML)
+            result = runner.invoke(_root(), ["runtime", "cloud-build", "-f", "rt.yaml"])
+    assert result.exit_code == 2
+    assert "plain-agent" in result.output
+    cfg_mock.assert_not_called()
+    build_mock.assert_not_called()
 
 
 def test_cloud_build_command_no_results_exit_code_2():

@@ -109,7 +109,8 @@ ar runtime cloud-build -f FILE
 
 只执行 `spec.container.cloudBuild` 构建步骤，不创建或更新 runtime。每篇文档都会调用
 docker-image-builder；builder 成功退出时输出 `completed`。docker-image-builder
-默认会跳过已存在的目标 tag。
+默认会跳过已存在的目标 tag。对于用 `---` 分隔的多文档 YAML，每篇都必须声明
+`spec.container.cloudBuild`；否则命令会在启动任何 builder 进程前失败。
 
 `cloud-build` 使用与 `apply` 相同的凭据来源：阿里云 UID/AK/SK 读取 AgentRun profile；
 镜像仓库用户名和密码优先读 YAML 的 `cloudBuild.registry`，否则读取
