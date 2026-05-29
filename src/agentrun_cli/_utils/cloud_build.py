@@ -10,12 +10,13 @@ import sys
 import time
 import urllib.request
 from dataclasses import dataclass
+from hashlib import sha256
 from pathlib import Path
 from typing import Any
 
 from agentrun_cli._utils.agentruntime_yaml import ParsedAgentRuntime, ParsedCloudBuild
 
-BUILDER_RELEASE_TAG = "v0.0.0-20260527-022927-3f8907ca6b2f"
+BUILDER_RELEASE_TAG = "latest"
 BUILDER_BASE_URL = "https://images.devsapp.cn/docker-image-builder"
 
 
@@ -206,14 +207,17 @@ def ensure_builder_binary() -> str:
     tag = os.getenv("DOCKER_IMAGE_BUILDER_BINTAG", "").strip() or BUILDER_RELEASE_TAG
     install_dir = Path.home() / ".docker-image-builder" / tag
     target = install_dir / _executable_name()
-    if _is_executable(target):
-        return str(target)
 
     install_dir.mkdir(parents=True, exist_ok=True)
     tmp = install_dir / f"{_executable_name()}.tmp-{os.getpid()}"
-    url = f"{BUILDER_BASE_URL}/{tag}/{_artifact_name()}"
+    artifact = _artifact_name()
+    url = f"{BUILDER_BASE_URL}/{tag}/{artifact}"
     try:
+        expected_sha256 = _download_sha256(f"{url}.sha256", artifact)
+        if _is_executable(target) and _sha256_file(target) == expected_sha256:
+            return str(target)
         _download_binary(url, tmp)
+        _verify_sha256(tmp, expected_sha256)
         tmp.chmod(tmp.stat().st_mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
         tmp.replace(target)
     except Exception as exc:
@@ -231,6 +235,66 @@ def _download_binary(url: str, target: Path) -> None:
     """
     with urllib.request.urlopen(url, timeout=120) as resp:  # noqa: S310
         target.write_bytes(resp.read())
+
+
+def _download_sha256(url: str, artifact_name: str) -> str:
+    """Download and parse a SHA256 checksum file.
+
+    Args:
+        url: Checksum URL.
+        artifact_name: Expected release artifact name.
+    """
+    with urllib.request.urlopen(url, timeout=30) as resp:  # noqa: S310
+        text = resp.read().decode("utf-8")
+    return _parse_sha256(text, artifact_name)
+
+
+def _parse_sha256(text: str, artifact_name: str) -> str:
+    """Parse a SHA256 checksum file.
+
+    Args:
+        text: Checksum file content.
+        artifact_name: Expected release artifact name.
+    """
+    for raw_line in text.splitlines():
+        line = raw_line.strip()
+        if not line or line.startswith("#"):
+            continue
+        parts = line.split()
+        digest = parts[0].lower()
+        if len(digest) != 64 or any(ch not in "0123456789abcdef" for ch in digest):
+            continue
+        if len(parts) == 1 or parts[-1].lstrip("*") == artifact_name:
+            return digest
+    raise CloudBuildError(f"invalid sha256 checksum file for {artifact_name}")
+
+
+def _verify_sha256(path: Path, expected_sha256: str) -> None:
+    """Verify a local file against an expected SHA256 digest.
+
+    Args:
+        path: File path to verify.
+        expected_sha256: Expected SHA256 digest.
+    """
+    actual_sha256 = _sha256_file(path)
+    if actual_sha256 != expected_sha256:
+        raise CloudBuildError(
+            "checksum mismatch for docker-image-builder: "
+            f"expected {expected_sha256}, got {actual_sha256}"
+        )
+
+
+def _sha256_file(path: Path) -> str:
+    """Compute the SHA256 digest of a local file.
+
+    Args:
+        path: File path to hash.
+    """
+    digest = sha256()
+    with path.open("rb") as f:
+        for chunk in iter(lambda: f.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
 
 
 def _is_executable(path: Path) -> bool:

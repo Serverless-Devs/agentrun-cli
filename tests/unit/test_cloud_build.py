@@ -5,6 +5,7 @@ from __future__ import annotations
 import os
 import stat
 import sys
+from hashlib import sha256
 from types import SimpleNamespace
 
 import pytest
@@ -158,7 +159,7 @@ def test_ensure_builder_binary_rejects_bad_binpath(monkeypatch, tmp_path):
         ensure_builder_binary()
 
 
-def test_ensure_builder_binary_downloads_fixed_tag(monkeypatch, tmp_path):
+def test_ensure_builder_binary_downloads_latest_with_checksum(monkeypatch, tmp_path):
     monkeypatch.delenv("DOCKER_IMAGE_BUILDER_BINPATH", raising=False)
     monkeypatch.delenv("DOCKER_IMAGE_BUILDER_BINTAG", raising=False)
     monkeypatch.setenv("HOME", str(tmp_path))
@@ -166,14 +167,24 @@ def test_ensure_builder_binary_downloads_fixed_tag(monkeypatch, tmp_path):
         "agentrun_cli._utils.cloud_build._artifact_name",
         lambda: "docker-image-builder-linux-amd64",
     )
+    content = b"#!/bin/sh\n"
 
     def fake_download(url, target):
         assert f"/{BUILDER_RELEASE_TAG}/" in url
-        target.write_text("#!/bin/sh\n", encoding="utf-8")
+        target.write_bytes(content)
+
+    def fake_download_sha256(url, artifact_name):
+        assert url.endswith("/docker-image-builder-linux-amd64.sha256")
+        assert artifact_name == "docker-image-builder-linux-amd64"
+        return sha256(content).hexdigest()
 
     monkeypatch.setattr(
         "agentrun_cli._utils.cloud_build._download_binary",
         fake_download,
+    )
+    monkeypatch.setattr(
+        "agentrun_cli._utils.cloud_build._download_sha256",
+        fake_download_sha256,
     )
     binary = ensure_builder_binary()
     expected_suffix = (
@@ -189,9 +200,72 @@ def test_ensure_builder_binary_uses_cached_bintag(monkeypatch, tmp_path):
     monkeypatch.setenv("HOME", str(tmp_path))
     cached = tmp_path / ".docker-image-builder" / "custom-tag" / "docker-image-builder"
     cached.parent.mkdir(parents=True)
-    cached.write_text("#!/bin/sh\n", encoding="utf-8")
+    content = b"#!/bin/sh\n"
+    cached.write_bytes(content)
     cached.chmod(cached.stat().st_mode | stat.S_IXUSR)
+    monkeypatch.setattr(
+        "agentrun_cli._utils.cloud_build._download_sha256",
+        lambda *_args: sha256(content).hexdigest(),
+    )
+    monkeypatch.setattr(
+        "agentrun_cli._utils.cloud_build._download_binary",
+        lambda *_args: pytest.fail("cached binary should not be downloaded"),
+    )
     assert ensure_builder_binary() == str(cached)
+
+
+def test_ensure_builder_binary_replaces_stale_cached_latest(monkeypatch, tmp_path):
+    monkeypatch.delenv("DOCKER_IMAGE_BUILDER_BINPATH", raising=False)
+    monkeypatch.delenv("DOCKER_IMAGE_BUILDER_BINTAG", raising=False)
+    monkeypatch.setenv("HOME", str(tmp_path))
+    monkeypatch.setattr(
+        "agentrun_cli._utils.cloud_build._artifact_name",
+        lambda: "docker-image-builder-linux-amd64",
+    )
+    cached = (
+        tmp_path
+        / ".docker-image-builder"
+        / BUILDER_RELEASE_TAG
+        / "docker-image-builder"
+    )
+    cached.parent.mkdir(parents=True)
+    cached.write_bytes(b"old")
+    cached.chmod(cached.stat().st_mode | stat.S_IXUSR)
+    new_content = b"new"
+    monkeypatch.setattr(
+        "agentrun_cli._utils.cloud_build._download_sha256",
+        lambda *_args: sha256(new_content).hexdigest(),
+    )
+
+    def fake_download(_url, target):
+        target.write_bytes(new_content)
+
+    monkeypatch.setattr(
+        "agentrun_cli._utils.cloud_build._download_binary",
+        fake_download,
+    )
+    assert ensure_builder_binary() == str(cached)
+    assert cached.read_bytes() == new_content
+
+
+def test_ensure_builder_binary_rejects_checksum_mismatch(monkeypatch, tmp_path):
+    monkeypatch.delenv("DOCKER_IMAGE_BUILDER_BINPATH", raising=False)
+    monkeypatch.delenv("DOCKER_IMAGE_BUILDER_BINTAG", raising=False)
+    monkeypatch.setenv("HOME", str(tmp_path))
+    monkeypatch.setattr(
+        "agentrun_cli._utils.cloud_build._artifact_name",
+        lambda: "docker-image-builder-linux-amd64",
+    )
+    monkeypatch.setattr(
+        "agentrun_cli._utils.cloud_build._download_sha256",
+        lambda *_args: sha256(b"expected").hexdigest(),
+    )
+    monkeypatch.setattr(
+        "agentrun_cli._utils.cloud_build._download_binary",
+        lambda _url, target: target.write_bytes(b"actual"),
+    )
+    with pytest.raises(CloudBuildError, match="checksum mismatch"):
+        ensure_builder_binary()
 
 
 def test_ensure_builder_binary_download_failure(monkeypatch, tmp_path):
@@ -201,6 +275,10 @@ def test_ensure_builder_binary_download_failure(monkeypatch, tmp_path):
     monkeypatch.setattr(
         "agentrun_cli._utils.cloud_build._artifact_name",
         lambda: "docker-image-builder-linux-amd64",
+    )
+    monkeypatch.setattr(
+        "agentrun_cli._utils.cloud_build._download_sha256",
+        lambda *_args: sha256(b"bin").hexdigest(),
     )
     monkeypatch.setattr(
         "agentrun_cli._utils.cloud_build._download_binary",
@@ -225,6 +303,40 @@ def test_download_binary(monkeypatch, tmp_path):
     monkeypatch.setattr("urllib.request.urlopen", lambda *_a, **_k: Resp())
     cloud_build_mod._download_binary("https://example.com/bin", target)
     assert target.read_bytes() == b"bin"
+
+
+def test_download_sha256(monkeypatch):
+    class Resp:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_args):
+            return False
+
+        def read(self):
+            return (
+                b"619ab54b0f5dd2208ce04c910b6b6800daf591adb6c3873e3cd9eecdedac341f"
+                b"  docker-image-builder-linux-amd64\n"
+            )
+
+    monkeypatch.setattr("urllib.request.urlopen", lambda *_a, **_k: Resp())
+    assert (
+        cloud_build_mod._download_sha256(
+            "https://example.com/bin.sha256",
+            "docker-image-builder-linux-amd64",
+        )
+        == "619ab54b0f5dd2208ce04c910b6b6800daf591adb6c3873e3cd9eecdedac341f"
+    )
+
+
+def test_parse_sha256_accepts_raw_digest():
+    digest = "a" * 64
+    assert cloud_build_mod._parse_sha256(digest, "artifact") == digest
+
+
+def test_parse_sha256_rejects_missing_artifact():
+    with pytest.raises(CloudBuildError, match="invalid sha256"):
+        cloud_build_mod._parse_sha256("a" * 64 + " other-artifact", "artifact")
 
 
 def test_build_runtime_image_runs_builder(monkeypatch):

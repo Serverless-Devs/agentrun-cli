@@ -116,6 +116,9 @@ docker-image-builder；builder 成功退出时输出 `completed`。docker-image-
 镜像仓库用户名和密码优先读 YAML 的 `cloudBuild.registry`，否则读取
 `DOCKER_IMAGE_BUILDER_USERNAME` / `DOCKER_IMAGE_BUILDER_PASSWORD`。
 
+CLI 自动下载 docker-image-builder 时，会先校验同名 `.sha256` 文件，再缓存或执行该
+二进制。设置 `DOCKER_IMAGE_BUILDER_BINPATH` 可以使用显式指定的本地 builder。
+
 ### Examples
 
 ```bash

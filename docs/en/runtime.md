@@ -123,6 +123,10 @@ Aliyun UID/AK/SK, and `DOCKER_IMAGE_BUILDER_USERNAME` /
 `DOCKER_IMAGE_BUILDER_PASSWORD` for registry auth unless the YAML overrides them
 under `cloudBuild.registry`.
 
+When the CLI downloads docker-image-builder automatically, it verifies the
+sibling `.sha256` file before caching or running the binary. Set
+`DOCKER_IMAGE_BUILDER_BINPATH` to use an explicit local builder binary.
+
 ### Examples
 
 ```bash
