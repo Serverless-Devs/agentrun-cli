@@ -12,6 +12,8 @@ Schema (k8s-style, single document, ``kind: AgentRuntime``)::
     spec:
       container:            # required (Container mode only)
         image: <str>        # required
+        cloudBuild: ...      # optional, build image in cloud before apply
+        cloudBuild.baseContainerConfig.image: <str>
         command: [<str>, ...]
         port: <int>
         imageRegistryType: <ACR|ACREE|CUSTOM>
@@ -76,6 +78,24 @@ class ParsedRegistryConfig:
 
 
 @dataclass
+class ParsedCloudBuildRegistry:
+    username: str | None = None
+    password: str | None = field(default=None, repr=False)
+
+
+@dataclass
+class ParsedCloudBuild:
+    dir: str = "."
+    setup_script: str = "scripts/setup.sh"
+    timeout_minutes: str = "20"
+    cpu: str = "4"
+    memory: str = "8192"
+    region: str | None = None
+    registry: ParsedCloudBuildRegistry | None = None
+    base_container_image: str | None = None
+
+
+@dataclass
 class ParsedContainer:
     image: str
     command: list[str] | None = None
@@ -83,6 +103,7 @@ class ParsedContainer:
     image_registry_type: str | None = None
     acr_instance_id: str | None = None
     registry_config: ParsedRegistryConfig | None = None
+    cloud_build: ParsedCloudBuild | None = None
 
 
 @dataclass
@@ -240,10 +261,137 @@ def _require_mapping(value: Any, where: str) -> dict:
     return value
 
 
+def _require_known_keys(raw: dict, allowed: set[str], where: str) -> None:
+    """Validate that a config mapping only contains supported fields.
+
+    Args:
+        raw: YAML mapping to validate.
+        allowed: Allowed field names.
+        where: Path used in error messages.
+    """
+    unknown = sorted(set(raw) - allowed)
+    if unknown:
+        raise YamlSchemaError(
+            f"{where} has unsupported field(s): {', '.join(unknown)}."
+        )
+
+
+def _as_string(value: Any, where: str) -> str:
+    """Convert a YAML scalar to a string.
+
+    Args:
+        value: Field value.
+        where: Path used in error messages.
+    """
+    if isinstance(value, bool):
+        raise YamlSchemaError(f"{where} must be a string or number.")
+    if isinstance(value, (str, int, float)):
+        return str(value)
+    raise YamlSchemaError(f"{where} must be a string or number.")
+
+
+def _parse_cloud_build_registry(raw: Any) -> ParsedCloudBuildRegistry | None:
+    """Parse `cloudBuild.registry`.
+
+    Args:
+        raw: Registry mapping, or None when omitted.
+    """
+    if raw is None:
+        return None
+    if not isinstance(raw, dict):
+        raise YamlSchemaError("spec.container.cloudBuild.registry must be a mapping.")
+    _require_known_keys(
+        raw,
+        {"username", "password"},
+        "spec.container.cloudBuild.registry",
+    )
+    username = raw.get("username")
+    password = raw.get("password")
+    if username is not None and not isinstance(username, str):
+        raise YamlSchemaError(
+            "spec.container.cloudBuild.registry.username must be a string."
+        )
+    if password is not None and not isinstance(password, str):
+        raise YamlSchemaError(
+            "spec.container.cloudBuild.registry.password must be a string."
+        )
+    return ParsedCloudBuildRegistry(username=username, password=password)
+
+
+def _parse_cloud_build_base_container_config(raw: Any) -> str | None:
+    """Parse `cloudBuild.baseContainerConfig.image`.
+
+    Args:
+        raw: Base container config mapping, or None when omitted.
+    """
+    if raw is None:
+        return None
+    if not isinstance(raw, dict):
+        raise YamlSchemaError(
+            "spec.container.cloudBuild.baseContainerConfig must be a mapping."
+        )
+    _require_known_keys(
+        raw,
+        {"image"},
+        "spec.container.cloudBuild.baseContainerConfig",
+    )
+    image = raw.get("image")
+    if image is None:
+        return None
+    return _as_string(image, "spec.container.cloudBuild.baseContainerConfig.image")
+
+
+def _parse_cloud_build(raw: Any) -> ParsedCloudBuild | None:
+    """Parse `cloudBuild` configuration.
+
+    Args:
+        raw: `cloudBuild` mapping.
+    """
+    if raw is None:
+        return None
+    if not isinstance(raw, dict):
+        raise YamlSchemaError("spec.container.cloudBuild must be a mapping.")
+    _require_known_keys(
+        raw,
+        {
+            "dir",
+            "setupScript",
+            "timeoutMinutes",
+            "cpu",
+            "memory",
+            "region",
+            "registry",
+            "baseContainerConfig",
+        },
+        "spec.container.cloudBuild",
+    )
+
+    def field(name: str, default: str | None = None) -> str | None:
+        value = raw.get(name)
+        if value is None:
+            return default
+        return _as_string(value, f"spec.container.cloudBuild.{name}")
+
+    region = field("region")
+    return ParsedCloudBuild(
+        dir=field("dir", ".") or ".",
+        setup_script=field("setupScript", "scripts/setup.sh") or "",
+        timeout_minutes=field("timeoutMinutes", "20") or "20",
+        cpu=field("cpu", "4") or "4",
+        memory=field("memory", "8192") or "8192",
+        region=region,
+        registry=_parse_cloud_build_registry(raw.get("registry")),
+        base_container_image=_parse_cloud_build_base_container_config(
+            raw.get("baseContainerConfig")
+        ),
+    )
+
+
 def _parse_container(raw: dict) -> ParsedContainer:
     image = raw.get("image")
     if not isinstance(image, str) or not image:
         raise YamlSchemaError("spec.container.image is required and must be a string.")
+    cloud_build = _parse_cloud_build(raw.get("cloudBuild"))
     image_registry_type = raw.get("imageRegistryType")
     if image_registry_type is not None and image_registry_type not in (
         "ACR",
@@ -273,6 +421,7 @@ def _parse_container(raw: dict) -> ParsedContainer:
         image_registry_type=image_registry_type,
         acr_instance_id=raw.get("acrInstanceId"),
         registry_config=registry_config,
+        cloud_build=cloud_build,
     )
 
 

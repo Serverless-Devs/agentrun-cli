@@ -15,6 +15,7 @@ rejected (see [Validation rules](#validation-rules)).
 - [CLI auto-injection](#cli-auto-injection)
 - [`metadata`](#metadata)
 - [`spec.container`](#speccontainer)
+- [`spec.container.cloudBuild`](#speccontainercloudbuild)
 - [`spec` resource & runtime knobs](#spec-resource--runtime-knobs)
 - [`spec.protocol`](#specprotocol)
 - [`spec.network`](#specnetwork)
@@ -77,7 +78,8 @@ Required block. Defines the container image and registry credentials.
 
 | Key | Type | Required | Notes |
 |---|---|---|---|
-| `image` | string | ✓ | OCI image reference. |
+| `image` | string | ✓ | OCI image reference. When `cloudBuild` is set, this is also the target image passed to the builder. |
+| `cloudBuild` | mapping |  | Build the image in the cloud. docker-image-builder skips existing target tags by default. |
 | `command` | list&lt;string&gt; |  | Overrides image `ENTRYPOINT`/`CMD`. |
 | `port` | int |  | Container listen port. If set, wins over `spec.port`. |
 | `imageRegistryType` | enum |  | One of `ACR`, `ACREE`, `CUSTOM`. |
@@ -102,6 +104,45 @@ registryConfig:
 
 All three sub-blocks (`auth`, `cert`, `network`) are individually optional, but
 `registryConfig` itself is mandatory under `CUSTOM`.
+
+
+## `spec.container.cloudBuild`
+
+Optional block. It asks `ar runtime apply` or `ar runtime cloud-build` to build
+`spec.container.image` with docker-image-builder. The target image is always
+`spec.container.image`; existing-tag checks are delegated to docker-image-builder.
+
+| Key | Type | Default | Notes |
+|---|---|---|---|
+| `dir` | string | `.` | Local source directory to upload. Relative paths are resolved from the current working directory. |
+| `setupScript` | string | `scripts/setup.sh` | Script executed in the builder before packaging. Empty string skips setup. |
+| `timeoutMinutes` | string/number | `20` | Setup script timeout in minutes. Worker creation, upload and push are not counted. |
+| `cpu` | string/number | `4` | Builder worker CPU, for example `4` or `4c`. |
+| `memory` | string/number | `8192` | Builder worker memory in MB. |
+| `region` | string | AgentRun region / `cn-hangzhou` | FC region for the builder worker. |
+| `registry` | mapping | env vars | Optional target registry auth; see below. |
+| `baseContainerConfig.image` | string | docker-image-builder default | Build environment image used by the cloud worker. |
+
+Only standard OCI registry mode is supported. Do not write `registryMode`,
+`baseImage`, `baseAcrInstanceId`, or `baseRegistry` in this block.
+
+```yaml
+cloudBuild:
+  dir: .
+  setupScript: scripts/setup.sh
+  timeoutMinutes: 20
+  cpu: 4
+  memory: 8192
+  baseContainerConfig:
+    image: serverless-registry.cn-hangzhou.cr.aliyuncs.com/functionai/docker-image-builder-worker:20260514-111141-2d80effe
+```
+
+`registry.username` and `registry.password` are optional. If omitted, the CLI
+reads `DOCKER_IMAGE_BUILDER_USERNAME` and `DOCKER_IMAGE_BUILDER_PASSWORD` from
+the environment or `.env`. Aliyun UID/AK/SK are resolved from the active
+AgentRun profile and passed to docker-image-builder through environment
+variables. The CLI does not interpolate `${...}` in YAML values; use environment
+variables by omitting `registry`, or put literal values in YAML.
 
 ## `spec` resource & runtime knobs
 
@@ -274,6 +315,7 @@ for the parser (`src/agentrun_cli/_utils/agentruntime_yaml.py`).
 | `metadata.name` missing or fails `[a-z0-9-]{1,63}` |  |
 | `spec.container` missing or not a mapping |  |
 | `spec.container.image` missing or empty |  |
+| `spec.container.cloudBuild` has unsupported fields | Only OCI mode is supported; ACREE/base-registry builder fields are rejected. |
 | `spec.container.imageRegistryType` not in `ACR|ACREE|CUSTOM` |  |
 | `imageRegistryType=CUSTOM` but `registryConfig` missing |  |
 | `metadata.tags` present | SDK 0.0.200 removed the field. |
@@ -319,6 +361,28 @@ spec:
       targetVersion: LATEST
 # system_tags=["x-agentrun-cli"], artifact_type=Container
 ```
+
+
+### Cloud build before deploy
+
+```yaml
+apiVersion: agentrun/v1
+kind: AgentRuntime
+metadata:
+  name: my-agent
+spec:
+  container:
+    image: registry.cn-hangzhou.aliyuncs.com/my-ns/my-agent:v1
+    cloudBuild:
+      dir: .
+      setupScript: scripts/setup.sh
+  env:
+    LOG_LEVEL: info
+```
+
+`ar runtime apply -f runtime.yaml` invokes docker-image-builder and then deploys
+the same `image` value. docker-image-builder skips existing target tags by
+default.
 
 ### Production — ACREE + private network + NAS + canary endpoint
 
@@ -406,6 +470,7 @@ For users who need to cross-reference the SDK
 | `spec.container.imageRegistryType` | `container_configuration.image_registry_type` |
 | `spec.container.acrInstanceId` | `container_configuration.acr_instance_id` |
 | `spec.container.registryConfig.*` | `container_configuration.registry_config.*` |
+| `spec.container.cloudBuild.*` | CLI-only build plan; not sent to AgentRun SDK. |
 | `spec.cpu / memory / port / diskSize` | `cpu / memory / port / disk_size` |
 | `spec.enableSessionIsolation` | `enable_session_isolation` |
 | `spec.protocol.type` | `protocol_configuration.type` |

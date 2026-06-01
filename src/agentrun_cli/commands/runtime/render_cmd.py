@@ -6,6 +6,7 @@ from agentrun_cli._utils.agentruntime_yaml import (
     YamlSchemaError,
     parse_yaml_file,
 )
+from agentrun_cli._utils.cloud_build import serialize_cloud_build_plan
 from agentrun_cli._utils.error import EXIT_BAD_INPUT, handle_errors
 from agentrun_cli._utils.output import echo_error, format_output
 
@@ -61,6 +62,7 @@ def render_cmd(ctx, file_path):
                     ei.model_dump() if hasattr(ei, "model_dump") else ei
                     for ei in ep_inputs
                 ],
+                "cloudBuildPlan": serialize_cloud_build_plan(parsed),
             }
         )
     format_output(ctx, results)
