@@ -16,8 +16,28 @@ from typing import Any
 
 from agentrun_cli._utils.agentruntime_yaml import ParsedAgentRuntime, ParsedCloudBuild
 
-BUILDER_RELEASE_TAG = "latest"
+BUILDER_RELEASE_TAG = "v0.0.0-20260518-164317-160dd89efac1"
 BUILDER_BASE_URL = "https://images.devsapp.cn/docker-image-builder"
+BUILDER_RELEASE_SHA256 = {
+    "docker-image-builder-darwin-amd64": (
+        "7311df3d1026a5a66823da951c05b9ec455e2d8514af76aeb550d97e3629cb5e"
+    ),
+    "docker-image-builder-darwin-arm64": (
+        "c6112ac61d85815e8103ed21989c40828a49798178b73337cb957d9ff433c338"
+    ),
+    "docker-image-builder-linux-amd64": (
+        "ad8af2d620f0509b20cef2967fc296915b85a28ebb40a16116b64b41d67820e2"
+    ),
+    "docker-image-builder-linux-arm64": (
+        "ec4cf574ce43051e04f45eeedf2a2622c79d75c62efda9b353578898b0bed714"
+    ),
+    "docker-image-builder-windows-amd64.exe": (
+        "cb19f3af6613eba2f42e31d925238b7ef7847fcaa615247fbe4fc179b80a23e7"
+    ),
+    "docker-image-builder-windows-arm64.exe": (
+        "7a44d8f36ba30c140700ce5b8dcf8dce78b1e9e71e6583b0b8f07c8fd8e5d6b4"
+    ),
+}
 
 
 class CloudBuildError(RuntimeError):
@@ -213,7 +233,7 @@ def ensure_builder_binary() -> str:
     artifact = _artifact_name()
     url = f"{BUILDER_BASE_URL}/{tag}/{artifact}"
     try:
-        expected_sha256 = _download_sha256(f"{url}.sha256", artifact)
+        expected_sha256 = _expected_sha256(tag, url, artifact)
         if _is_executable(target) and _sha256_file(target) == expected_sha256:
             return str(target)
         _download_binary(url, tmp)
@@ -224,6 +244,31 @@ def ensure_builder_binary() -> str:
         tmp.unlink(missing_ok=True)
         raise CloudBuildError(f"download docker-image-builder failed: {exc}") from exc
     return str(target)
+
+
+def _expected_sha256(tag: str, url: str, artifact_name: str) -> str:
+    """Return the expected SHA256 digest for a release artifact.
+
+    Args:
+        tag: Release tag being installed.
+        url: Artifact download URL.
+        artifact_name: Expected release artifact name.
+    """
+    if tag == BUILDER_RELEASE_TAG:
+        return _pinned_sha256(artifact_name)
+    return _download_sha256(f"{url}.sha256", artifact_name)
+
+
+def _pinned_sha256(artifact_name: str) -> str:
+    """Return the pinned release SHA256 digest for an artifact.
+
+    Args:
+        artifact_name: Expected release artifact name.
+    """
+    digest = BUILDER_RELEASE_SHA256.get(artifact_name)
+    if not digest:
+        raise CloudBuildError(f"missing pinned sha256 for {artifact_name}")
+    return digest
 
 
 def _download_binary(url: str, target: Path) -> None:
