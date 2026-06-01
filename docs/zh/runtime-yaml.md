@@ -13,6 +13,7 @@
 - [CLI 自动注入](#cli-自动注入)
 - [`metadata`](#metadata)
 - [`spec.container`](#speccontainer)
+- [`spec.container.cloudBuild`](#speccontainercloudbuild)
 - [`spec` 资源与运行时开关](#spec-资源与运行时开关)
 - [`spec.protocol`](#specprotocol)
 - [`spec.network`](#specnetwork)
@@ -74,7 +75,8 @@ endpoints:
 
 | 字段 | 类型 | 必填 | 说明 |
 |---|---|---|---|
-| `image` | string | ✓ | OCI 镜像引用。 |
+| `image` | string | ✓ | OCI 镜像引用。写了 `cloudBuild` 时，它也是传给 builder 的目标镜像。 |
+| `cloudBuild` | 映射 |  | 在云上构建镜像。docker-image-builder 默认会跳过已存在的目标 tag。 |
 | `command` | list&lt;string&gt; |  | 覆盖镜像的 `ENTRYPOINT`/`CMD`。 |
 | `port` | int |  | 容器监听端口。若设置，则覆盖 `spec.port`。 |
 | `imageRegistryType` | 枚举 |  | `ACR`、`ACREE`、`CUSTOM` 之一。 |
@@ -99,6 +101,44 @@ registryConfig:
 
 三个子块（`auth`、`cert`、`network`）各自可选；但 `registryConfig` 本身在
 `CUSTOM` 下必填。
+
+
+## `spec.container.cloudBuild`
+
+可选块。它让 `ar runtime apply` 或 `ar runtime cloud-build` 在
+云上调用 docker-image-builder 构建 `spec.container.image`。目标镜像永远就是
+`spec.container.image`；目标 tag 是否存在由 docker-image-builder 判断。
+
+| 字段 | 类型 | 默认 | 说明 |
+|---|---|---|---|
+| `dir` | string | `.` | 要上传的本地源码目录。相对路径按当前工作目录解析。 |
+| `setupScript` | string | `scripts/setup.sh` | 构建前在 builder 内执行的脚本。空字符串表示跳过 setup。 |
+| `timeoutMinutes` | string/number | `20` | setup 脚本超时，单位分钟；不包含创建 worker、上传代码和推送镜像。 |
+| `cpu` | string/number | `4` | Builder worker CPU，例如 `4` 或 `4c`。 |
+| `memory` | string/number | `8192` | Builder worker 内存，单位 MB。 |
+| `region` | string | AgentRun region / `cn-hangzhou` | Builder worker 所在 FC 地域。 |
+| `registry` | 映射 | 环境变量 | 可选的目标镜像仓库鉴权，见下文。 |
+| `baseContainerConfig.image` | string | docker-image-builder 默认值 | 云端 worker 使用的构建环境镜像。 |
+
+仅支持标准 OCI registry 模式。不要在该块中写 `registryMode`、`baseImage`、
+`baseAcrInstanceId` 或 `baseRegistry`。
+
+```yaml
+cloudBuild:
+  dir: .
+  setupScript: scripts/setup.sh
+  timeoutMinutes: 20
+  cpu: 4
+  memory: 8192
+  baseContainerConfig:
+    image: serverless-registry.cn-hangzhou.cr.aliyuncs.com/functionai/docker-image-builder-worker:20260514-111141-2d80effe
+```
+
+`registry.username` 和 `registry.password` 可省略。省略时 CLI 会从环境变量或 `.env`
+读取 `DOCKER_IMAGE_BUILDER_USERNAME` 和 `DOCKER_IMAGE_BUILDER_PASSWORD`。阿里云
+UID/AK/SK 从当前 AgentRun profile 解析，并通过环境变量传给 docker-image-builder。
+CLI 不会对 YAML 值做 `${...}` 插值；需要使用环境变量时不要写 `registry`，或者
+在 YAML 中写入字面值。
 
 ## `spec` 资源与运行时开关
 
@@ -270,6 +310,7 @@ routing:
 | `metadata.name` 缺失或不符合 `[a-z0-9-]{1,63}` |  |
 | `spec.container` 缺失或不是映射 |  |
 | `spec.container.image` 缺失或为空 |  |
+| `spec.container.cloudBuild` 出现不支持字段 | 只支持 OCI 模式；ACREE/base-registry builder 字段会被拒绝。 |
 | `spec.container.imageRegistryType` 不在 `ACR|ACREE|CUSTOM` 中 |  |
 | `imageRegistryType=CUSTOM` 但 `registryConfig` 缺失 |  |
 | 出现 `metadata.tags` | SDK 0.0.200 已移除该字段。 |
@@ -315,6 +356,27 @@ spec:
       targetVersion: LATEST
 # system_tags=["x-agentrun-cli"], artifact_type=Container
 ```
+
+
+### 部署前云上构建
+
+```yaml
+apiVersion: agentrun/v1
+kind: AgentRuntime
+metadata:
+  name: my-agent
+spec:
+  container:
+    image: registry.cn-hangzhou.aliyuncs.com/my-ns/my-agent:v1
+    cloudBuild:
+      dir: .
+      setupScript: scripts/setup.sh
+  env:
+    LOG_LEVEL: info
+```
+
+`ar runtime apply -f runtime.yaml` 会调用 docker-image-builder 构建并推送镜像，然后部署
+同一个 `image` 值。docker-image-builder 默认会跳过已存在的目标 tag。
 
 ### 生产示例 —— ACREE + 私网 + NAS + 金丝雀
 
@@ -401,6 +463,7 @@ spec:
 | `spec.container.imageRegistryType` | `container_configuration.image_registry_type` |
 | `spec.container.acrInstanceId` | `container_configuration.acr_instance_id` |
 | `spec.container.registryConfig.*` | `container_configuration.registry_config.*` |
+| `spec.container.cloudBuild.*` | CLI-only 构建计划，不发送给 AgentRun SDK。 |
 | `spec.cpu / memory / port / diskSize` | `cpu / memory / port / disk_size` |
 | `spec.enableSessionIsolation` | `enable_session_isolation` |
 | `spec.protocol.type` | `protocol_configuration.type` |
