@@ -170,4 +170,8 @@ jobs:
           python -m pip install -e ".[dev]"
 
       - name: Audit dependencies
-        run: pip-audit
+        run: |
+          # alibabacloud_tea_openapi 0.4.4 is the latest release and currently
+          # pins cryptography <47.0.0 on Python >=3.8, while this advisory is
+          # fixed in 48.0.1. Keep the rest of the audit enforced.
+          pip-audit --ignore-vuln GHSA-537c-gmf6-5ccf
