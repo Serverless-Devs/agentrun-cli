@@ -12,10 +12,17 @@ from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
 import click
+import pytest
+import yaml
 from click.testing import CliRunner
 
+from agentrun_cli._utils.agentruntime_yaml import parse_yaml_text
 from agentrun_cli._utils.cloud_build import CloudBuildError, CloudBuildResult
 from agentrun_cli.commands.runtime import runtime_group
+from agentrun_cli.commands.runtime.export_cmd import (
+    RuntimeExportError,
+    runtime_to_yaml_doc,
+)
 
 
 def _root():
@@ -43,6 +50,7 @@ def test_runtime_group_registered():
     assert "apply" in result.output
     assert "cloud-build" in result.output
     assert "render" in result.output
+    assert "export" in result.output
 
 
 VALID_YAML = """
@@ -579,6 +587,288 @@ def test_list_runtimes_created_by_cli_filter():
     assert {r["name"] for r in out} == {"cli-one"}
 
 
+def _make_export_runtime():
+    runtime = _make_runtime()
+    runtime.artifact_type = "Container"
+    runtime.description = "export me"
+    runtime.workspace_name = "ws-name"
+    runtime.workspace_id = "ws-1"
+    runtime.container_configuration = SimpleNamespace(
+        image="registry.example.com/ns/app:v1",
+        command=["python", "app.py"],
+        port=8000,
+        image_registry_type=SimpleNamespace(value="CUSTOM"),
+        acr_instance_id="acr-1",
+        registry_config=SimpleNamespace(
+            auth_config=SimpleNamespace(
+                user_name="repo-user",
+                password="repo-pass",  # noqa: S106 - test fixture
+            ),
+            cert_config=SimpleNamespace(insecure=True, root_ca_cert_base_64="cert"),
+            network_config=SimpleNamespace(
+                vpc_id="vpc-1",
+                v_switch_id="vsw-1",
+                security_group_id="sg-1",
+            ),
+        ),
+    )
+    runtime.cpu = 4.0
+    runtime.memory = 8192
+    runtime.port = 8000
+    runtime.disk_size = 10240
+    runtime.enable_session_isolation = True
+    runtime.network_configuration = SimpleNamespace(
+        network_mode="PUBLIC_AND_PRIVATE",
+        vpc_id="vpc-1",
+        vswitch_ids=["vsw-1"],
+        security_group_id="sg-1",
+    )
+    runtime.health_check_configuration = SimpleNamespace(
+        http_get_url="/healthz",
+        initial_delay_seconds=5,
+        period_seconds=10,
+        timeout_seconds=3,
+        failure_threshold=2,
+        success_threshold=1,
+    )
+    runtime.log_configuration = SimpleNamespace(project="proj", logstore="store")
+    runtime.environment_variables = {"LOG_LEVEL": "info"}
+    runtime.credential_name = "cred-1"
+    runtime.execution_role_arn = "acs:ram::1:role/runtime"
+    runtime.session_concurrency_limit_per_instance = 2
+    runtime.session_idle_timeout_seconds = 600
+    runtime.protocol_configuration = SimpleNamespace(
+        type="HTTP",
+        protocol_settings=[
+            SimpleNamespace(
+                type=SimpleNamespace(value="HTTP"),
+                name="invoke",
+                path="/invoke",
+                path_prefix="/api",
+                method="POST",
+                request_content_type="application/json",
+                response_content_type="application/json",
+                headers='{"x-test":"1"}',
+                input_body_json_schema="{}",
+                output_body_json_schema="{}",
+                a2a_agent_card="{}",
+                a2a_agent_card_url="https://example.com/card.json",
+                config="{}",
+            )
+        ],
+    )
+    runtime.nas_config = SimpleNamespace(
+        user_id=10003,
+        group_id=10003,
+        mount_points=[
+            SimpleNamespace(
+                server_addr="0a12b4.cn-hangzhou.nas.aliyuncs.com:/",
+                mount_dir="/mnt/nas",
+                enable_tls=True,
+            )
+        ],
+    )
+    runtime.oss_mount_config = SimpleNamespace(
+        mount_points=[
+            SimpleNamespace(
+                bucket_name="bucket-1",
+                mount_dir="/mnt/oss",
+                bucket_path="prefix/",
+                endpoint="oss-cn-hangzhou.aliyuncs.com",
+                read_only=True,
+            )
+        ]
+    )
+    endpoint = SimpleNamespace(
+        agent_runtime_endpoint_name="default",
+        description="default endpoint",
+        target_version="LATEST",
+        routing_configuration=SimpleNamespace(
+            version_weights=[SimpleNamespace(version="1", weight=100.0)]
+        ),
+        disable_public_network_access=False,
+        scaling_config=SimpleNamespace(
+            min_instances=1,
+            scheduled_policies=[
+                SimpleNamespace(
+                    name="business-hours",
+                    schedule_expression="cron(0 9 ? * MON-FRI *)",
+                    start_time="2026-01-01T00:00:00Z",
+                    end_time="2026-12-31T23:59:59Z",
+                    target=2,
+                    time_zone="Asia/Shanghai",
+                )
+            ],
+        ),
+    )
+    runtime.list_endpoints = MagicMock(return_value=[endpoint])
+    return runtime
+
+
+def test_export_runtime_outputs_apply_yaml():
+    rt = _make_export_runtime()
+    rt_cls = MagicMock()
+    rt_cls.list_all.return_value = [rt]
+    with (
+        patch(
+            "agentrun_cli.commands.runtime.export_cmd.build_sdk_config",
+            return_value=MagicMock(),
+        ),
+        patch("agentrun_cli.commands.runtime.export_cmd.AgentRuntime", rt_cls),
+    ):
+        result = CliRunner().invoke(_root(), ["runtime", "export", "my-agent"])
+    assert result.exit_code == 0, result.output
+    out = yaml.safe_load(result.output)
+    assert out["apiVersion"] == "agentrun/v1"
+    assert out["kind"] == "AgentRuntime"
+    assert parse_yaml_text(result.output)[0].name == "my-agent"
+    assert out["metadata"] == {
+        "name": "my-agent",
+        "description": "export me",
+        "workspaceId": "ws-1",
+    }
+    assert out["spec"]["container"]["image"] == "registry.example.com/ns/app:v1"
+    assert out["spec"]["container"]["registryConfig"]["auth"]["userName"] == "repo-user"
+    assert out["spec"]["container"]["registryConfig"]["auth"]["password"] == "repo-pass"
+    assert out["spec"]["protocol"]["settings"][0]["path"] == "/invoke"
+    assert out["spec"]["nas"]["mountPoints"][0]["mountDir"] == "/mnt/nas"
+    assert out["spec"]["ossMount"]["mountPoints"][0]["bucketName"] == "bucket-1"
+    assert out["spec"]["env"] == {"LOG_LEVEL": "info"}
+    assert out["spec"]["endpoints"] == [
+        {
+            "name": "default",
+            "description": "default endpoint",
+            "routing": [{"version": "1", "weight": 100.0}],
+            "disablePublicNetworkAccess": False,
+            "scaling": {
+                "minInstances": 1,
+                "scheduledPolicies": [
+                    {
+                        "name": "business-hours",
+                        "scheduleExpression": "cron(0 9 ? * MON-FRI *)",
+                        "startTime": "2026-01-01T00:00:00Z",
+                        "endTime": "2026-12-31T23:59:59Z",
+                        "target": 2,
+                        "timeZone": "Asia/Shanghai",
+                    }
+                ],
+            },
+        }
+    ]
+
+
+def test_export_runtime_writes_file():
+    rt = _make_export_runtime()
+    rt_cls = MagicMock()
+    rt_cls.list_all.return_value = [rt]
+    with (
+        patch(
+            "agentrun_cli.commands.runtime.export_cmd.build_sdk_config",
+            return_value=MagicMock(),
+        ),
+        patch("agentrun_cli.commands.runtime.export_cmd.AgentRuntime", rt_cls),
+    ):
+        runner = CliRunner()
+        with runner.isolated_filesystem():
+            result = runner.invoke(
+                _root(),
+                ["runtime", "export", "my-agent", "--file", "runtime.yaml"],
+            )
+            assert result.exit_code == 0, result.output
+            assert result.output == ""
+            out = yaml.safe_load(open("runtime.yaml", encoding="utf-8"))
+    assert out["metadata"]["name"] == "my-agent"
+
+
+def test_export_runtime_not_found_exit_1():
+    rt_cls = MagicMock()
+    rt_cls.list_all.return_value = []
+    with (
+        patch(
+            "agentrun_cli.commands.runtime.export_cmd.build_sdk_config",
+            return_value=MagicMock(),
+        ),
+        patch("agentrun_cli.commands.runtime.export_cmd.AgentRuntime", rt_cls),
+    ):
+        result = CliRunner().invoke(_root(), ["runtime", "export", "missing"])
+    assert result.exit_code == 1
+
+
+def test_export_runtime_rejects_non_container_runtime():
+    rt = _make_export_runtime()
+    rt.artifact_type = "Code"
+    rt_cls = MagicMock()
+    rt_cls.list_all.return_value = [rt]
+    with (
+        patch(
+            "agentrun_cli.commands.runtime.export_cmd.build_sdk_config",
+            return_value=MagicMock(),
+        ),
+        patch("agentrun_cli.commands.runtime.export_cmd.AgentRuntime", rt_cls),
+    ):
+        result = CliRunner().invoke(_root(), ["runtime", "export", "my-agent"])
+    assert result.exit_code == 2
+    assert "Container" in result.stderr
+
+
+def test_runtime_to_yaml_doc_minimal_dict_runtime():
+    doc = runtime_to_yaml_doc(
+        {
+            "agentRuntimeName": "dict-agent",
+            "artifactType": "Container",
+            "containerConfiguration": {
+                "image": "registry.example.com/ns/app:v1",
+                "registryConfig": {},
+            },
+        }
+    )
+    assert doc == {
+        "apiVersion": "agentrun/v1",
+        "kind": "AgentRuntime",
+        "metadata": {"name": "dict-agent"},
+        "spec": {"container": {"image": "registry.example.com/ns/app:v1"}},
+    }
+
+
+def test_runtime_to_yaml_doc_minimal_object_runtime_branches():
+    endpoint = SimpleNamespace(
+        agent_runtime_endpoint_name="default",
+        routing_configuration=None,
+        target_version="LATEST",
+        scaling_config=None,
+    )
+    runtime = SimpleNamespace(
+        agent_runtime_name="minimal-agent",
+        artifact_type=None,
+        container_configuration=SimpleNamespace(image="registry.example.com/ns/app:v1"),
+        protocol_configuration=SimpleNamespace(type="HTTP"),
+    )
+    runtime.list_endpoints = MagicMock(return_value=[endpoint])
+
+    doc = runtime_to_yaml_doc(runtime)
+
+    assert doc == {
+        "apiVersion": "agentrun/v1",
+        "kind": "AgentRuntime",
+        "metadata": {"name": "minimal-agent"},
+        "spec": {
+            "container": {"image": "registry.example.com/ns/app:v1"},
+            "protocol": {"type": "HTTP"},
+            "endpoints": [{"name": "default", "targetVersion": "LATEST"}],
+        },
+    }
+
+
+def test_runtime_to_yaml_doc_rejects_missing_container_image():
+    runtime = SimpleNamespace(
+        agent_runtime_name="bad-agent",
+        artifact_type="Container",
+        container_configuration=SimpleNamespace(),
+    )
+    with pytest.raises(RuntimeExportError, match="container image"):
+        runtime_to_yaml_doc(runtime)
+
+
 def test_delete_idempotent_when_missing():
     rt_cls = MagicMock()
     rt_cls.list_all.return_value = []
@@ -682,6 +972,7 @@ def test_real_cli_exposes_runtime_group():
     assert result.exit_code == 0
     assert "apply" in result.output
     assert "cloud-build" in result.output
+    assert "export" in result.output
 
 
 def test_real_cli_exposes_rt_alias():

@@ -323,13 +323,14 @@ def _artifact_name() -> str:
 
 def _go_platform() -> str:
     """Convert a Python platform name to a Go release platform name."""
-    if sys.platform == "win32":
+    platform_name = str(sys.platform)
+    if platform_name == "win32":
         return "windows"
-    if sys.platform == "darwin":
+    if platform_name == "darwin":
         return "darwin"
-    if sys.platform.startswith("linux"):
+    if platform_name.startswith("linux"):
         return "linux"
-    raise CloudBuildError(f"unsupported platform: {sys.platform}")
+    raise CloudBuildError(f"unsupported platform: {platform_name}")
 
 
 def _go_arch() -> str:
