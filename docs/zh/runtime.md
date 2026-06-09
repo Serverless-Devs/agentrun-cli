@@ -152,20 +152,22 @@ ar runtime render -f FILE
 ## export
 
 ```
-ar runtime export NAME [-f FILE]
+ar runtime export NAME [-f FILE] [--include-secrets]
 ```
 
 读取一个存量 Agent Runtime 及其 endpoints，并导出为 `ar runtime apply` 可消费的
 YAML。默认输出到 stdout；传入 `--file` 时写入文件。命令只导出当前 CLI YAML
 schema 支持的字段，会刻意省略 ID、ARN、version、status、时间戳等服务端状态字段。
 `cloudBuild` 依赖本地源码目录和构建参数，无法从远端 runtime 反推，因此不会导出。
-如果服务端返回镜像仓库认证信息，导出的 YAML 可能包含敏感值；提交或共享前请先检查。
+镜像仓库认证密码等敏感字段默认不导出。只有明确需要完整导出时才使用
+`--include-secrets`，提交或共享前请先检查 YAML。
 
 ### Options
 
 | Flag | Type | Required | Default | Description |
 |------|------|----------|---------|-------------|
 | `-f`, `--file` | path | no |  | 将 YAML 写入文件，而不是 stdout。 |
+| `--include-secrets` | flag | no | `false` | 在导出 YAML 中包含敏感的镜像仓库认证字段。 |
 
 ### Examples
 
