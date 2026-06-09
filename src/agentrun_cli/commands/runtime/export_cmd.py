@@ -42,9 +42,14 @@ def _lazy_sdk() -> Any:
     type=click.Path(dir_okay=False, writable=True),
     help="Write YAML to a file instead of stdout.",
 )
+@click.option(
+    "--include-secrets",
+    is_flag=True,
+    help="Include sensitive registry authentication fields in exported YAML.",
+)
 @click.pass_context
 @handle_errors
-def export_cmd(ctx, name, file_path):
+def export_cmd(ctx, name, file_path, include_secrets):
     rt_cls = _lazy_sdk()
     profile, region = ctx_cfg(ctx)
     build_sdk_config(profile_name=profile, region=region)
@@ -53,7 +58,7 @@ def export_cmd(ctx, name, file_path):
         echo_error("ResourceNotFound", f"AgentRuntime {name!r} not found.")
         raise SystemExit(EXIT_NOT_FOUND)
     try:
-        data = runtime_to_yaml_doc(runtime)
+        data = runtime_to_yaml_doc(runtime, include_secrets=include_secrets)
     except RuntimeExportError as exc:
         echo_error("UnsupportedRuntime", str(exc))
         raise SystemExit(EXIT_BAD_INPUT) from exc
@@ -66,7 +71,9 @@ def export_cmd(ctx, name, file_path):
     click.echo(text, nl=False)
 
 
-def runtime_to_yaml_doc(runtime: Any) -> dict[str, Any]:
+def runtime_to_yaml_doc(
+    runtime: Any, *, include_secrets: bool = False
+) -> dict[str, Any]:
     artifact_type = _enum_value(_get(runtime, "artifact_type", "artifactType"))
     if artifact_type and artifact_type != "Container":
         raise RuntimeExportError(
@@ -91,7 +98,9 @@ def runtime_to_yaml_doc(runtime: Any) -> dict[str, Any]:
             metadata, "workspace", _get(runtime, "workspace_name", "workspaceName")
         )
 
-    spec: dict[str, Any] = {"container": _export_container(container)}
+    spec: dict[str, Any] = {
+        "container": _export_container(container, include_secrets=include_secrets)
+    }
     for yaml_key, attr in [
         ("cpu", "cpu"),
         ("memory", "memory"),
@@ -145,7 +154,9 @@ def runtime_to_yaml_doc(runtime: Any) -> dict[str, Any]:
     )
 
     if hasattr(runtime, "list_endpoints"):
-        spec["endpoints"] = [_export_endpoint(ep) for ep in runtime.list_endpoints()]
+        endpoints = [_export_endpoint(ep) for ep in runtime.list_endpoints()]
+        if endpoints:
+            spec["endpoints"] = endpoints
 
     return {
         "apiVersion": "agentrun/v1",
@@ -155,7 +166,7 @@ def runtime_to_yaml_doc(runtime: Any) -> dict[str, Any]:
     }
 
 
-def _export_container(container: Any) -> dict[str, Any]:
+def _export_container(container: Any, *, include_secrets: bool) -> dict[str, Any]:
     out: dict[str, Any] = {"image": _get(container, "image")}
     command = _get(container, "command")
     if command:
@@ -172,19 +183,23 @@ def _export_container(container: Any) -> dict[str, Any]:
     _set_if_present(
         out,
         "registryConfig",
-        _export_registry(_get(container, "registry_config", "registryConfig")),
+        _export_registry(
+            _get(container, "registry_config", "registryConfig"),
+            include_secrets=include_secrets,
+        ),
     )
     return out
 
 
-def _export_registry(registry: Any) -> dict[str, Any] | None:
+def _export_registry(registry: Any, *, include_secrets: bool) -> dict[str, Any] | None:
     if registry is None:
         return None
     out: dict[str, Any] = {}
     auth = _get(registry, "auth_config", "authConfig", "auth")
     auth_out: dict[str, Any] = {}
     _set_if_present(auth_out, "userName", _get(auth, "user_name", "userName"))
-    _set_if_present(auth_out, "password", _get(auth, "password"))
+    if include_secrets:
+        _set_if_present(auth_out, "password", _get(auth, "password"))
     _set_if_present(out, "auth", auth_out)
 
     cert = _get(registry, "cert_config", "certConfig", "cert")

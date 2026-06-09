@@ -729,7 +729,7 @@ def test_export_runtime_outputs_apply_yaml():
     }
     assert out["spec"]["container"]["image"] == "registry.example.com/ns/app:v1"
     assert out["spec"]["container"]["registryConfig"]["auth"]["userName"] == "repo-user"
-    assert out["spec"]["container"]["registryConfig"]["auth"]["password"] == "repo-pass"
+    assert "password" not in out["spec"]["container"]["registryConfig"]["auth"]
     assert out["spec"]["protocol"]["settings"][0]["path"] == "/invoke"
     assert out["spec"]["nas"]["mountPoints"][0]["mountDir"] == "/mnt/nas"
     assert out["spec"]["ossMount"]["mountPoints"][0]["bucketName"] == "bucket-1"
@@ -776,8 +776,46 @@ def test_export_runtime_writes_file():
             )
             assert result.exit_code == 0, result.output
             assert result.output == ""
-            out = yaml.safe_load(open("runtime.yaml", encoding="utf-8"))
+            with open("runtime.yaml", encoding="utf-8") as f:
+                out = yaml.safe_load(f)
     assert out["metadata"]["name"] == "my-agent"
+
+
+def test_export_runtime_can_include_secrets_explicitly():
+    rt = _make_export_runtime()
+    rt_cls = MagicMock()
+    rt_cls.list_all.return_value = [rt]
+    with (
+        patch(
+            "agentrun_cli.commands.runtime.export_cmd.build_sdk_config",
+            return_value=MagicMock(),
+        ),
+        patch("agentrun_cli.commands.runtime.export_cmd.AgentRuntime", rt_cls),
+    ):
+        result = CliRunner().invoke(
+            _root(), ["runtime", "export", "my-agent", "--include-secrets"]
+        )
+    assert result.exit_code == 0, result.output
+    out = yaml.safe_load(result.output)
+    assert out["spec"]["container"]["registryConfig"]["auth"]["password"] == "repo-pass"
+
+
+def test_export_runtime_omits_empty_endpoint_list():
+    rt = _make_export_runtime()
+    rt.list_endpoints = MagicMock(return_value=[])
+    rt_cls = MagicMock()
+    rt_cls.list_all.return_value = [rt]
+    with (
+        patch(
+            "agentrun_cli.commands.runtime.export_cmd.build_sdk_config",
+            return_value=MagicMock(),
+        ),
+        patch("agentrun_cli.commands.runtime.export_cmd.AgentRuntime", rt_cls),
+    ):
+        result = CliRunner().invoke(_root(), ["runtime", "export", "my-agent"])
+    assert result.exit_code == 0, result.output
+    out = yaml.safe_load(result.output)
+    assert "endpoints" not in out["spec"]
 
 
 def test_export_runtime_not_found_exit_1():

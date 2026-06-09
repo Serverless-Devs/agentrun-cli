@@ -161,7 +161,7 @@ before `apply`.
 ## export
 
 ```
-ar runtime export NAME [-f FILE]
+ar runtime export NAME [-f FILE] [--include-secrets]
 ```
 
 Export an existing Agent Runtime and its endpoints as `ar runtime apply` YAML.
@@ -170,14 +170,16 @@ exports only fields supported by the CLI YAML schema and intentionally omits
 server-owned state such as IDs, ARNs, versions, status, and timestamps.
 `cloudBuild` cannot be reconstructed from a remote runtime because it depends on
 local source/build settings.
-If the service returns registry authentication details, the exported YAML may
-contain sensitive values; review it before committing or sharing.
+Registry authentication secrets such as passwords are omitted by default. Use
+`--include-secrets` only when you explicitly need a full-fidelity export, and
+review the YAML before committing or sharing it.
 
 ### Options
 
 | Flag | Type | Required | Default | Description |
 |------|------|----------|---------|-------------|
 | `-f`, `--file` | path | no |  | Write YAML to a file instead of stdout. |
+| `--include-secrets` | flag | no | `false` | Include sensitive registry authentication fields in exported YAML. |
 
 ### Examples
 
