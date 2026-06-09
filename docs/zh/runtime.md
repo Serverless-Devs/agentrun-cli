@@ -16,6 +16,7 @@ YAML；用户不写时 CLI 会自动注入一个名为 `default` 的 endpoint（
 - [apply](#apply) — 配置后先云上构建，再从 YAML create-or-update。
 - [cloud-build](#cloud-build) — 只按 YAML 构建镜像，不部署 runtime。
 - [render](#render) — 校验 + 渲染为 SDK 输入（不调用服务端）。
+- [export](#export) — 将存量 runtime 导出为可 apply 的 YAML。
 - [get](#get) — 按名字获取单个 runtime。
 - [list](#list) — 列出 runtime；可用 `--created-by-cli` 或 `--workspace` 过滤。
 - [delete](#delete) — 删除 runtime（默认等待）。
@@ -145,6 +146,38 @@ ar runtime render -f FILE
 以 JSON 形式打印 SDK create-input，不调用服务端。YAML 包含 `cloudBuild` 时，`render`
 还会输出 `cloudBuildPlan` 预览，但不会检查 registry，也不会构建镜像。可在 `apply`
 之前用于预览。
+
+---
+
+## export
+
+```
+ar runtime export NAME [-f FILE]
+```
+
+读取一个存量 Agent Runtime 及其 endpoints，并导出为 `ar runtime apply` 可消费的
+YAML。默认输出到 stdout；传入 `--file` 时写入文件。命令只导出当前 CLI YAML
+schema 支持的字段，会刻意省略 ID、ARN、version、status、时间戳等服务端状态字段。
+`cloudBuild` 依赖本地源码目录和构建参数，无法从远端 runtime 反推，因此不会导出。
+如果服务端返回镜像仓库认证信息，导出的 YAML 可能包含敏感值；提交或共享前请先检查。
+
+### Options
+
+| Flag | Type | Required | Default | Description |
+|------|------|----------|---------|-------------|
+| `-f`, `--file` | path | no |  | 将 YAML 写入文件，而不是 stdout。 |
+
+### Examples
+
+```bash
+# 导出到 stdout
+ar runtime export my-agent
+
+# 导出后修改 metadata.name，再创建一份副本
+ar runtime export my-agent -f copied-runtime.yaml
+# 编辑 copied-runtime.yaml：metadata.name: my-agent-copy
+ar runtime apply -f copied-runtime.yaml
+```
 
 ---
 

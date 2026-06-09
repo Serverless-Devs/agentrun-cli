@@ -20,6 +20,7 @@ from agentrun_cli.commands.runtime import (
 )
 from agentrun_cli.commands.runtime import crud_cmd as _crud_mod  # noqa: E402
 from agentrun_cli.commands.runtime import delete_cmd as _delete_mod  # noqa: E402
+from agentrun_cli.commands.runtime import export_cmd as _export_mod  # noqa: E402
 from agentrun_cli.commands.runtime import render_cmd as _render_mod  # noqa: E402
 from agentrun_cli.commands.runtime import status_cmd as _status_mod  # noqa: E402
 
@@ -35,6 +36,7 @@ def runtime_group():
 runtime_group.add_command(_apply_mod.apply_cmd)
 runtime_group.add_command(_cloud_build_mod.cloud_build_cmd)
 runtime_group.add_command(_render_mod.render_cmd)
+runtime_group.add_command(_export_mod.export_cmd)
 runtime_group.add_command(_crud_mod.get_cmd)
 runtime_group.add_command(_crud_mod.list_cmd)
 runtime_group.add_command(_delete_mod.delete_cmd)

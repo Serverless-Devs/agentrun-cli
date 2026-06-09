@@ -19,6 +19,7 @@ Also available as the alias `ar rt`.
 - [apply](#apply) — cloud-build when configured, then create-or-update from YAML.
 - [cloud-build](#cloud-build) — build images from YAML without deploying.
 - [render](#render) — dry-run validate + render to SDK input.
+- [export](#export) — export one existing runtime as apply-ready YAML.
 - [get](#get) — fetch one runtime by name.
 - [list](#list) — list runtimes; filter by `--created-by-cli` or `--workspace`.
 - [delete](#delete) — delete a runtime (waits by default).
@@ -154,6 +155,41 @@ and prints the SDK create-input as JSON without calling the server. When the
 YAML includes `cloudBuild`, `render` also prints a `cloudBuildPlan` preview but
 does not check the registry or build anything. Use this to preview changes
 before `apply`.
+
+---
+
+## export
+
+```
+ar runtime export NAME [-f FILE]
+```
+
+Export an existing Agent Runtime and its endpoints as `ar runtime apply` YAML.
+The command writes YAML to stdout by default, or to `--file` when provided. It
+exports only fields supported by the CLI YAML schema and intentionally omits
+server-owned state such as IDs, ARNs, versions, status, and timestamps.
+`cloudBuild` cannot be reconstructed from a remote runtime because it depends on
+local source/build settings.
+If the service returns registry authentication details, the exported YAML may
+contain sensitive values; review it before committing or sharing.
+
+### Options
+
+| Flag | Type | Required | Default | Description |
+|------|------|----------|---------|-------------|
+| `-f`, `--file` | path | no |  | Write YAML to a file instead of stdout. |
+
+### Examples
+
+```bash
+# Export to stdout.
+ar runtime export my-agent
+
+# Export, edit metadata.name, then create a copy.
+ar runtime export my-agent -f copied-runtime.yaml
+# edit copied-runtime.yaml: metadata.name: my-agent-copy
+ar runtime apply -f copied-runtime.yaml
+```
 
 ---
 
