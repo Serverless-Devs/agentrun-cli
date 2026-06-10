@@ -23,7 +23,13 @@ agents that you configure declaratively without writing or deploying any runtime
 
 ## Installation
 
-### Prebuilt binary (recommended)
+### From PyPI (recommended)
+
+```bash
+pip install agentrun-cli
+```
+
+### Prebuilt binary
 
 Download a single self-contained binary from [Releases](https://github.com/Serverless-Devs/agentrun-cli/releases). No Python required.
 
@@ -48,12 +54,6 @@ agentrun-<version>-<os>-<arch>.<ext>
 # e.g. agentrun-0.1.0-linux-amd64.tar.gz
 #      agentrun-0.1.0-darwin-arm64.tar.gz
 #      agentrun-0.1.0-windows-amd64.zip
-```
-
-### From PyPI
-
-```bash
-pip install agentrun-cli
 ```
 
 ### From source
