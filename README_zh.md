@@ -22,7 +22,13 @@ Agent）**：一种由平台托管、用户只需声明配置、无需编写或�
 
 ## 安装
 
-### 预编译二进制（推荐）
+### 从 PyPI 安装（推荐）
+
+```bash
+pip install agentrun-cli
+```
+
+### 预编译二进制
 
 从 [Releases](https://github.com/Serverless-Devs/agentrun-cli/releases) 下载单文件二进制，无需 Python。
 
@@ -47,12 +53,6 @@ agentrun-<version>-<os>-<arch>.<ext>
 # 例如 agentrun-0.1.0-linux-amd64.tar.gz
 #      agentrun-0.1.0-darwin-arm64.tar.gz
 #      agentrun-0.1.0-windows-amd64.zip
-```
-
-### 从 PyPI 安装
-
-```bash
-pip install agentrun-cli
 ```
 
 ### 从源码安装
