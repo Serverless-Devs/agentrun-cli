@@ -40,8 +40,7 @@ metadata:
 spec:
   container:
     image: registry.cn-hangzhou.aliyuncs.com/my-ns/my-agent:v1
-    port: 9000
-    command: ["bash", "-lc", "cd /code && exec bash scripts/start.sh"]
+    command: ["bash", "-lc", "exec bash scripts/start.sh"]
     cloudBuild:
       dir: .
       setupScript: scripts/setup.sh
@@ -49,13 +48,12 @@ spec:
       cpu: 4
       memory: 8192
   port: 9000
-```
 
 `spec.container.cloudBuild` 会在部署前调用 docker-image-builder 云构建镜像；目标镜像就是 `spec.container.image`。
 
 ## 镜像仓库
 
-- `cloudBuild` YAML 不支持 `registryMode` 字段。需要切换 registry 模式时，通过 `DOCKER_IMAGE_BUILDER_REGISTRY_MODE` 环境变量传给 docker-image-builder。
+- `cloudBuild` YAML 不支持 `registryMode` 字段；仅支持标准 OCI registry 模式。
 - 如果设置了 `DOCKER_IMAGE_BUILDER_BINPATH`，agentrun-cli 会优先使用该路径的 docker-image-builder。
 - 镜像仓库推送账号可通过 `DOCKER_IMAGE_BUILDER_USERNAME` 和 `DOCKER_IMAGE_BUILDER_PASSWORD` 提供；docker-image-builder 也兼容 `DOCKER_IMAGE_BUILDER_REGISTRY_USERNAME` 和 `DOCKER_IMAGE_BUILDER_REGISTRY_PASSWORD`。
 - runtime 拉取私有镜像时，在 `spec.container.registryConfig.auth.userName` 和 `password` 中配置仓库账号密码；字段名必须是 `userName`，不是 `username`。
