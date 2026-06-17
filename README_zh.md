@@ -209,6 +209,13 @@ ar runtime apply -f runtime-build.yaml
 # ar runtime cloud-build -f runtime-build.yaml
 ```
 
+### 本地 Runtime 部署 Skill
+
+这个本地 skill 用于让 Agent 帮项目准备 AgentRun Runtime 部署，包括启动脚本、
+`agentruntime.yaml`、云构建配置和 `ar runtime apply` 流程。
+
+[查看完整 skill](https://raw.githubusercontent.com/Serverless-Devs/agentrun-cli/main/skills/agentrun-cli-runtime-deploy/SKILL.md)
+
 ## 命令组总览
 
 | 命令组 | 别名 | 用途 | 文档 |
