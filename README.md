@@ -220,7 +220,7 @@ This local skill helps an agent prepare a project for AgentRun Runtime
 deployment, including setup/start scripts, `agentruntime.yaml`, cloud build
 configuration and the `ar runtime apply` flow.
 
-[View the full skill](https://raw.githubusercontent.com/Serverless-Devs/agentrun-cli/main/skills/run-your-agents/SKILL.md)
+[View the full skill](./skills/run-your-agents/SKILL.md)
 
 ## Command groups
 
