@@ -1,5 +1,5 @@
 ---
-name: agentrun-cli-runtime-deploy
+name: run-your-agents
 description: 将当前项目整理并部署为 AgentRun Runtime，使用 agentrun-cli 的 ar runtime apply 与 cloudBuild 能力。Use when 用户要求把项目发布、部署、上线到 AgentRun runtime，提到 agentruntime.yaml、ar runtime apply、cloudBuild、docker-image-builder、AgentRun CLI runtime 部署，或需要补 scripts/setup.sh 和 scripts/start.sh。
 ---
 
@@ -48,6 +48,7 @@ spec:
       cpu: 4
       memory: 8192
   port: 9000
+```
 
 `spec.container.cloudBuild` 会在部署前调用 docker-image-builder 云构建镜像；目标镜像就是 `spec.container.image`。
 
