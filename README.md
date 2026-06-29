@@ -214,6 +214,14 @@ ar runtime apply -f runtime-build.yaml
 # ar runtime cloud-build -f runtime-build.yaml
 ```
 
+### Local runtime deploy skill
+
+This local skill helps an agent prepare a project for AgentRun Runtime
+deployment, including setup/start scripts, `agentruntime.yaml`, cloud build
+configuration and the `ar runtime apply` flow.
+
+[View the full skill](./skills/run-your-agents/SKILL.md)
+
 ## Command groups
 
 | Group | Alias | Purpose | Docs |
