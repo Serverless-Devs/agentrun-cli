@@ -82,7 +82,7 @@ def _zip_directory_bytes(dir_path: str) -> bytes:
 
 
 def _zip_skill_directory_bytes(dir_path: str) -> bytes:
-    """打包 Skill 目录，缺少 main.py 时注入 FC 占位入口。"""
+    """Package a Skill directory and inject a placeholder main.py when missing."""
     buf = io.BytesIO()
     has_main_py = False
     with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
@@ -116,7 +116,7 @@ def _upload_skill_archive_to_fc_temp_bucket(
     profile: str | None,
     region: str | None,
 ) -> _CodePackageLocation:
-    """上传 Skill ZIP 到 FC 临时 OSS，并返回 AgentRun 可消费的位置。"""
+    """Upload a Skill ZIP to FC TempBucket OSS and return its code location."""
     import oss2
 
     cfg = build_sdk_config(profile_name=profile, region=region)
@@ -127,12 +127,14 @@ def _upload_skill_archive_to_fc_temp_bucket(
         account_id = cfg.get_account_id()
     except ValueError as exc:
         raise click.ClickException(
-            "创建 Skill 需要配置 access_key_id、access_key_secret、account_id 和 region"
+            "Creating a Skill requires access_key_id, access_key_secret, "
+            "account_id, and region."
         ) from exc
     region_id = cfg.get_region_id()
     if not ak or not sk or not account_id or not region_id:
         raise click.ClickException(
-            "创建 Skill 需要配置 access_key_id、access_key_secret、account_id 和 region"
+            "Creating a Skill requires access_key_id, access_key_secret, "
+            "account_id, and region."
         )
 
     payload = _get_fc_temp_bucket_token(ak, sk, token, account_id, region_id)
@@ -159,7 +161,7 @@ def _get_fc_temp_bucket_token(
     account_id: str,
     region_id: str,
 ) -> dict:
-    """调用 FC 2016 接口获取临时 OSS 凭证。"""
+    """Call the FC 2016 API to fetch temporary OSS credentials."""
     host = f"{account_id}.{region_id}.fc.aliyuncs.com"
     path = "/2016-08-15/tempBucketToken"
     date = email.utils.formatdate(usegmt=True)
@@ -183,11 +185,17 @@ def _get_fc_temp_bucket_token(
             raw = response.read()
     except urllib.error.HTTPError as exc:
         detail = exc.read().decode("utf-8", errors="replace")
-        raise click.ClickException(f"获取 FC TempBucket token 失败: {detail}") from exc
-    except urllib.error.URLError as exc:
-        message = f"获取 FC TempBucket token 失败: {exc.reason}"
+        message = f"Failed to get FC TempBucket token: {detail}"
         raise click.ClickException(message) from exc
-    return json.loads(raw.decode("utf-8"))
+    except urllib.error.URLError as exc:
+        message = f"Failed to get FC TempBucket token: {exc.reason}"
+        raise click.ClickException(message) from exc
+    try:
+        return json.loads(raw.decode("utf-8"))
+    except json.JSONDecodeError as exc:
+        preview = raw[:200].decode("utf-8", errors="replace")
+        message = f"Failed to parse FC TempBucket token response: {preview}"
+        raise click.ClickException(message) from exc
 
 
 def _fc_authorization(
@@ -197,7 +205,7 @@ def _fc_authorization(
     headers: dict[str, str],
     resource: str,
 ) -> str:
-    """生成 FC 2016 API 的 Authorization 头。"""
+    """Build the Authorization header for FC 2016 API requests."""
     lower_headers = {key.lower(): value for key, value in headers.items()}
     fc_headers = ""
     for key in sorted(k for k in lower_headers if k.startswith("x-fc-")):
@@ -221,17 +229,17 @@ def _fc_authorization(
 
 
 def _required_temp_bucket_field(data: dict, key: str) -> str:
-    """读取 FC TempBucket 字段，兼容首字母大小写。"""
+    """Read a required FC TempBucket field, accepting PascalCase variants."""
     value = data.get(key)
     if value is None:
         value = data.get(key[:1].upper() + key[1:])
     if not isinstance(value, str) or not value.strip():
-        raise click.ClickException(f"FC TempBucket 响应缺少 {key}")
+        raise click.ClickException(f"FC TempBucket response is missing '{key}'")
     return value.strip()
 
 
 def _temp_bucket_object_name(account_id: str, object_name: str) -> str:
-    """生成 FC TempBucket 最终对象名。"""
+    """Build the final FC TempBucket object name."""
     account_id = account_id.strip().strip("/")
     object_name = object_name.strip().lstrip("/")
     if not account_id:
@@ -240,7 +248,7 @@ def _temp_bucket_object_name(account_id: str, object_name: str) -> str:
 
 
 def _oss_endpoint_from_region(oss_region: str) -> str:
-    """根据 FC 返回的 OSS region 生成 endpoint。"""
+    """Build an OSS endpoint from the FC-returned OSS region."""
     value = oss_region.strip()
     if value.startswith(("http://", "https://")):
         return value

@@ -201,7 +201,7 @@ class TestFCTempBucketHelpers:
 
 
 def _fc_temp_bucket_payload(*, capitalized=False):
-    """构造 FC TempBucket 返回 payload；capitalized=True 时使用首字母大写键。"""
+    """Build an FC TempBucket payload; capitalized=True uses PascalCase keys."""
     if capitalized:
         return {
             "OssRegion": "cn-hangzhou",
@@ -226,7 +226,7 @@ def _fc_temp_bucket_payload(*, capitalized=False):
 
 
 class TestUploadSkillArchiveToFCTempBucket:
-    """覆盖 _upload_skill_archive_to_fc_temp_bucket 的 FC 取 token + OSS 上传链路。"""
+    """Cover the FC token fetch and OSS upload path."""
 
     @pytest.fixture
     def mock_cfg(self):
@@ -240,7 +240,7 @@ class TestUploadSkillArchiveToFCTempBucket:
 
     @pytest.fixture
     def installed_fake_deps(self):
-        """注入伪造的 oss2 模块，避免真实网络依赖。"""
+        """Inject a fake oss2 module to avoid real network dependencies."""
         fake_oss2 = MagicMock()
         bucket = MagicMock()
         fake_oss2.Bucket.return_value = bucket
@@ -282,7 +282,7 @@ class TestUploadSkillArchiveToFCTempBucket:
         fake_oss2.StsAuth.assert_called_once_with("temp-ak", "temp-sk", "temp-token")
 
     def test_accepts_capitalized_payload(self, mock_cfg, installed_fake_deps):
-        """FC 响应字段首字母大写也应被正确解析。"""
+        """Parse FC responses that use PascalCase field names."""
         _fake_oss2, _bucket = installed_fake_deps
         response = MagicMock()
         response.__enter__.return_value.read.return_value = json.dumps(
@@ -372,6 +372,27 @@ class TestUploadSkillArchiveToFCTempBucket:
                 return_value=cfg,
             ),
             pytest.raises(click.ClickException, match="account_id"),
+        ):
+            _upload_skill_archive_to_fc_temp_bucket(
+                b"zip-bytes", profile=None, region=None
+            )
+
+    def test_invalid_temp_bucket_json_raises_click_exception(
+        self, mock_cfg, installed_fake_deps
+    ):
+        response = MagicMock()
+        response.__enter__.return_value.read.return_value = b"not-json-response"
+
+        with (
+            patch(
+                "agentrun_cli.commands.skill_cmd.build_sdk_config",
+                return_value=mock_cfg,
+            ),
+            patch(
+                "agentrun_cli.commands.skill_cmd.urllib.request.urlopen",
+                return_value=response,
+            ),
+            pytest.raises(click.ClickException, match="Failed to parse"),
         ):
             _upload_skill_archive_to_fc_temp_bucket(
                 b"zip-bytes", profile=None, region=None
