@@ -18,10 +18,16 @@ Examples::
 """
 
 import base64
+import email.utils
+import hashlib
+import hmac
 import io
 import json
 import os
+import urllib.error
+import urllib.request
 import zipfile
+from dataclasses import dataclass
 
 import click
 
@@ -60,6 +66,11 @@ def _serialize_tool(t) -> dict:
 
 def _zip_directory(dir_path: str) -> str:
     """ZIP a directory and return base64-encoded content."""
+    return base64.b64encode(_zip_directory_bytes(dir_path)).decode("ascii")
+
+
+def _zip_directory_bytes(dir_path: str) -> bytes:
+    """ZIP a directory and return raw bytes."""
     buf = io.BytesIO()
     with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
         for root, _dirs, files in os.walk(dir_path):
@@ -67,7 +78,177 @@ def _zip_directory(dir_path: str) -> str:
                 full_path = os.path.join(root, fname)
                 arcname = os.path.relpath(full_path, dir_path)
                 zf.write(full_path, arcname)
-    return base64.b64encode(buf.getvalue()).decode("ascii")
+    return buf.getvalue()
+
+
+def _zip_skill_directory_bytes(dir_path: str) -> bytes:
+    """打包 Skill 目录，缺少 main.py 时注入 FC 占位入口。"""
+    buf = io.BytesIO()
+    has_main_py = False
+    with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
+        for root, _dirs, files in os.walk(dir_path):
+            for fname in files:
+                full_path = os.path.join(root, fname)
+                arcname = os.path.relpath(full_path, dir_path)
+                if arcname == "main.py":
+                    has_main_py = True
+                zf.write(full_path, arcname)
+        if not has_main_py:
+            zf.writestr(
+                "main.py",
+                "def handler(event, context):\n"
+                "    return {'status': 'ok'}\n\n"
+                "if __name__ == '__main__':\n"
+                "    print('skill package placeholder')\n",
+            )
+    return buf.getvalue()
+
+
+@dataclass(frozen=True)
+class _CodePackageLocation:
+    oss_bucket_name: str
+    oss_object_name: str
+
+
+def _upload_skill_archive_to_fc_temp_bucket(
+    zip_data: bytes,
+    *,
+    profile: str | None,
+    region: str | None,
+) -> _CodePackageLocation:
+    """上传 Skill ZIP 到 FC 临时 OSS，并返回 AgentRun 可消费的位置。"""
+    import oss2
+
+    cfg = build_sdk_config(profile_name=profile, region=region)
+    ak = cfg.get_access_key_id()
+    sk = cfg.get_access_key_secret()
+    token = cfg.get_security_token()
+    try:
+        account_id = cfg.get_account_id()
+    except ValueError as exc:
+        raise click.ClickException(
+            "创建 Skill 需要配置 access_key_id、access_key_secret、account_id 和 region"
+        ) from exc
+    region_id = cfg.get_region_id()
+    if not ak or not sk or not account_id or not region_id:
+        raise click.ClickException(
+            "创建 Skill 需要配置 access_key_id、access_key_secret、account_id 和 region"
+        )
+
+    payload = _get_fc_temp_bucket_token(ak, sk, token, account_id, region_id)
+    oss_region = _required_temp_bucket_field(payload, "ossRegion")
+    oss_bucket = _required_temp_bucket_field(payload, "ossBucket")
+    object_name = _temp_bucket_object_name(
+        account_id, _required_temp_bucket_field(payload, "objectName")
+    )
+    credentials = payload.get("credentials") or payload.get("Credentials") or {}
+    temp_ak = _required_temp_bucket_field(credentials, "accessKeyId")
+    temp_sk = _required_temp_bucket_field(credentials, "accessKeySecret")
+    temp_token = _required_temp_bucket_field(credentials, "securityToken")
+
+    auth = oss2.StsAuth(temp_ak, temp_sk, temp_token)
+    bucket = oss2.Bucket(auth, _oss_endpoint_from_region(oss_region), oss_bucket)
+    bucket.put_object(object_name, zip_data)
+    return _CodePackageLocation(oss_bucket, object_name)
+
+
+def _get_fc_temp_bucket_token(
+    access_key_id: str,
+    access_key_secret: str,
+    security_token: str | None,
+    account_id: str,
+    region_id: str,
+) -> dict:
+    """调用 FC 2016 接口获取临时 OSS 凭证。"""
+    host = f"{account_id}.{region_id}.fc.aliyuncs.com"
+    path = "/2016-08-15/tempBucketToken"
+    date = email.utils.formatdate(usegmt=True)
+    headers = {
+        "Host": host,
+        "Accept": "application/json",
+        "Date": date,
+        "User-Agent": "agentrun-cli",
+        "X-Fc-Account-Id": account_id,
+    }
+    if security_token:
+        headers["X-Fc-Security-Token"] = security_token
+    headers["Authorization"] = _fc_authorization(
+        access_key_id, access_key_secret, "GET", headers, path
+    )
+    request = urllib.request.Request(
+        f"https://{host}{path}", headers=headers, method="GET"
+    )
+    try:
+        with urllib.request.urlopen(request, timeout=60) as response:  # noqa: S310
+            raw = response.read()
+    except urllib.error.HTTPError as exc:
+        detail = exc.read().decode("utf-8", errors="replace")
+        raise click.ClickException(f"获取 FC TempBucket token 失败: {detail}") from exc
+    except urllib.error.URLError as exc:
+        message = f"获取 FC TempBucket token 失败: {exc.reason}"
+        raise click.ClickException(message) from exc
+    return json.loads(raw.decode("utf-8"))
+
+
+def _fc_authorization(
+    access_key_id: str,
+    access_key_secret: str,
+    method: str,
+    headers: dict[str, str],
+    resource: str,
+) -> str:
+    """生成 FC 2016 API 的 Authorization 头。"""
+    lower_headers = {key.lower(): value for key, value in headers.items()}
+    fc_headers = ""
+    for key in sorted(k for k in lower_headers if k.startswith("x-fc-")):
+        fc_headers += f"{key}:{lower_headers[key]}\n"
+    string_to_sign = "\n".join(
+        [
+            method,
+            lower_headers.get("content-md5", ""),
+            lower_headers.get("content-type", ""),
+            lower_headers.get("date", ""),
+            f"{fc_headers}{resource}",
+        ]
+    )
+    digest = hmac.new(
+        access_key_secret.encode("utf-8"),
+        string_to_sign.encode("utf-8"),
+        hashlib.sha256,
+    ).digest()
+    signature = base64.b64encode(digest).decode("ascii")
+    return f"FC {access_key_id}:{signature}"
+
+
+def _required_temp_bucket_field(data: dict, key: str) -> str:
+    """读取 FC TempBucket 字段，兼容首字母大小写。"""
+    value = data.get(key)
+    if value is None:
+        value = data.get(key[:1].upper() + key[1:])
+    if not isinstance(value, str) or not value.strip():
+        raise click.ClickException(f"FC TempBucket 响应缺少 {key}")
+    return value.strip()
+
+
+def _temp_bucket_object_name(account_id: str, object_name: str) -> str:
+    """生成 FC TempBucket 最终对象名。"""
+    account_id = account_id.strip().strip("/")
+    object_name = object_name.strip().lstrip("/")
+    if not account_id:
+        return object_name
+    return f"{account_id}/{object_name}"
+
+
+def _oss_endpoint_from_region(oss_region: str) -> str:
+    """根据 FC 返回的 OSS region 生成 endpoint。"""
+    value = oss_region.strip()
+    if value.startswith(("http://", "https://")):
+        return value
+    if "." in value:
+        return f"https://{value}"
+    if value.startswith("oss-"):
+        return f"https://{value}.aliyuncs.com"
+    return f"https://oss-{value}.aliyuncs.com"
 
 
 def _load_json_option(raw: str | None) -> dict | None:
@@ -131,14 +312,24 @@ def skill_create(ctx, skill_name, code_dir, description, credential_name, from_f
         if not description:
             description = _extract_description(skill_md)
 
-        # ZIP and base64 encode
-        zip_b64 = _zip_directory(code_dir)
+        location = _upload_skill_archive_to_fc_temp_bucket(
+            _zip_skill_directory_bytes(code_dir),
+            profile=profile,
+            region=region,
+        )
 
-        code_cfg = models.CodeConfiguration(zip_file=zip_b64)
+        code_cfg = models.CodeConfiguration(
+            oss_bucket_name=location.oss_bucket_name,
+            oss_object_name=location.oss_object_name,
+            language="python3.12",
+            command=["python", "main.py"],
+        )
 
         inp = models.CreateToolInputV2(
             tool_name=skill_name,
             tool_type="SKILL",
+            create_method="CODE_PACKAGE",
+            artifact_type="Code",
             description=description,
             code_configuration=code_cfg,
             credential_name=credential_name,

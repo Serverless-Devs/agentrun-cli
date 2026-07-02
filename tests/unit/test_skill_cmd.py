@@ -8,15 +8,22 @@ import zipfile
 from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
+import click
 import pytest
 from click.testing import CliRunner
 
 from agentrun_cli.commands.skill_cmd import (
+    _CodePackageLocation,
     _ctx_cfg,
     _extract_description,
+    _fc_authorization,
     _load_json_option,
+    _oss_endpoint_from_region,
     _serialize_tool,
+    _temp_bucket_object_name,
+    _upload_skill_archive_to_fc_temp_bucket,
     _zip_directory,
+    _zip_skill_directory_bytes,
     skill_group,
 )
 
@@ -128,6 +135,247 @@ class TestZipDirectory:
         buf = io.BytesIO(raw)
         with zipfile.ZipFile(buf, "r") as zf:
             assert zf.namelist() == []
+
+    def test_skill_zip_adds_placeholder_main(self, tmp_path):
+        (tmp_path / "SKILL.md").write_text("# Skill\n")
+        raw = _zip_skill_directory_bytes(str(tmp_path))
+        with zipfile.ZipFile(io.BytesIO(raw), "r") as zf:
+            assert "SKILL.md" in zf.namelist()
+            assert "main.py" in zf.namelist()
+            assert b"skill package placeholder" in zf.read("main.py")
+
+    def test_skill_zip_keeps_existing_main(self, tmp_path):
+        (tmp_path / "SKILL.md").write_text("# Skill\n")
+        (tmp_path / "main.py").write_text("print('custom')\n")
+        raw = _zip_skill_directory_bytes(str(tmp_path))
+        with zipfile.ZipFile(io.BytesIO(raw), "r") as zf:
+            assert zf.read("main.py") == b"print('custom')\n"
+
+
+class TestFCTempBucketHelpers:
+    def test_temp_bucket_object_name_prefixes_account(self):
+        assert _temp_bucket_object_name("149", "/abc") == "149/abc"
+
+    def test_temp_bucket_object_name_without_account(self):
+        assert _temp_bucket_object_name("", "/abc") == "abc"
+
+    def test_oss_endpoint_from_region(self):
+        assert _oss_endpoint_from_region("cn-hangzhou") == (
+            "https://oss-cn-hangzhou.aliyuncs.com"
+        )
+        assert _oss_endpoint_from_region("oss-cn-hangzhou") == (
+            "https://oss-cn-hangzhou.aliyuncs.com"
+        )
+        assert _oss_endpoint_from_region("oss-cn-hangzhou.aliyuncs.com") == (
+            "https://oss-cn-hangzhou.aliyuncs.com"
+        )
+        assert _oss_endpoint_from_region("https://example.com") == (
+            "https://example.com"
+        )
+
+    def test_fc_authorization_uses_fc_signature(self):
+        headers = {
+            "Date": "Thu, 02 Jul 2026 12:00:00 GMT",
+            "X-Fc-Account-Id": "149",
+            "X-Fc-Security-Token": "sts-token",
+        }
+
+        auth = _fc_authorization("ak", "sk", "GET", headers, "/2016-08-15/path")
+
+        assert auth == "FC ak:yXJoM8Ao+2iKd1FetDoGXzA2BBNVqPQW1lnw1cRWxxc="
+        assert "acs " not in auth
+
+    def test_fc_authorization_date_header_is_case_insensitive(self):
+        headers = {
+            "date": "Thu, 02 Jul 2026 12:00:00 GMT",
+            "X-Fc-Account-Id": "149",
+        }
+        normalized_headers = {
+            "Date": "Thu, 02 Jul 2026 12:00:00 GMT",
+            "X-Fc-Account-Id": "149",
+        }
+
+        assert _fc_authorization("ak", "sk", "GET", headers, "/path") == (
+            _fc_authorization("ak", "sk", "GET", normalized_headers, "/path")
+        )
+
+
+def _fc_temp_bucket_payload(*, capitalized=False):
+    """构造 FC TempBucket 返回 payload；capitalized=True 时使用首字母大写键。"""
+    if capitalized:
+        return {
+            "OssRegion": "cn-hangzhou",
+            "OssBucket": "fc-temp-bucket",
+            "ObjectName": "object.zip",
+            "Credentials": {
+                "AccessKeyId": "temp-ak",
+                "AccessKeySecret": "temp-sk",
+                "SecurityToken": "temp-token",
+            },
+        }
+    return {
+        "ossRegion": "cn-hangzhou",
+        "ossBucket": "fc-temp-bucket",
+        "objectName": "object.zip",
+        "credentials": {
+            "accessKeyId": "temp-ak",
+            "accessKeySecret": "temp-sk",
+            "securityToken": "temp-token",
+        },
+    }
+
+
+class TestUploadSkillArchiveToFCTempBucket:
+    """覆盖 _upload_skill_archive_to_fc_temp_bucket 的 FC 取 token + OSS 上传链路。"""
+
+    @pytest.fixture
+    def mock_cfg(self):
+        cfg = MagicMock()
+        cfg.get_access_key_id.return_value = "ak"
+        cfg.get_access_key_secret.return_value = "sk"
+        cfg.get_security_token.return_value = "sts-token"
+        cfg.get_account_id.return_value = "149"
+        cfg.get_region_id.return_value = "cn-hangzhou"
+        return cfg
+
+    @pytest.fixture
+    def installed_fake_deps(self):
+        """注入伪造的 oss2 模块，避免真实网络依赖。"""
+        fake_oss2 = MagicMock()
+        bucket = MagicMock()
+        fake_oss2.Bucket.return_value = bucket
+        fake_oss2.StsAuth.return_value = MagicMock(name="sts-auth")
+
+        modules = {
+            "oss2": fake_oss2,
+        }
+        with patch.dict("sys.modules", modules):
+            yield fake_oss2, bucket
+
+    def test_uploads_and_returns_location(self, mock_cfg, installed_fake_deps):
+        fake_oss2, bucket = installed_fake_deps
+        response = MagicMock()
+        response.__enter__.return_value.read.return_value = json.dumps(
+            _fc_temp_bucket_payload()
+        ).encode()
+
+        with (
+            patch(
+                "agentrun_cli.commands.skill_cmd.build_sdk_config",
+                return_value=mock_cfg,
+            ),
+            patch("agentrun_cli.commands.skill_cmd.urllib.request.urlopen") as urlopen,
+        ):
+            urlopen.return_value = response
+            location = _upload_skill_archive_to_fc_temp_bucket(
+                b"zip-bytes", profile="default", region="cn-hangzhou"
+            )
+
+        request = urlopen.call_args.args[0]
+        assert request.full_url == (
+            "https://149.cn-hangzhou.fc.aliyuncs.com/2016-08-15/tempBucketToken"
+        )
+        assert request.headers["Authorization"].startswith("FC ak:")
+        assert request.headers["X-fc-security-token"] == "sts-token"
+        assert location == _CodePackageLocation("fc-temp-bucket", "149/object.zip")
+        bucket.put_object.assert_called_once_with("149/object.zip", b"zip-bytes")
+        fake_oss2.StsAuth.assert_called_once_with("temp-ak", "temp-sk", "temp-token")
+
+    def test_accepts_capitalized_payload(self, mock_cfg, installed_fake_deps):
+        """FC 响应字段首字母大写也应被正确解析。"""
+        _fake_oss2, _bucket = installed_fake_deps
+        response = MagicMock()
+        response.__enter__.return_value.read.return_value = json.dumps(
+            _fc_temp_bucket_payload(capitalized=True)
+        ).encode()
+
+        with (
+            patch(
+                "agentrun_cli.commands.skill_cmd.build_sdk_config",
+                return_value=mock_cfg,
+            ),
+            patch(
+                "agentrun_cli.commands.skill_cmd.urllib.request.urlopen",
+                return_value=response,
+            ),
+        ):
+            location = _upload_skill_archive_to_fc_temp_bucket(
+                b"zip-bytes", profile=None, region=None
+            )
+
+        assert location.oss_bucket_name == "fc-temp-bucket"
+        assert location.oss_object_name == "149/object.zip"
+
+    def test_missing_credentials_raises(self, mock_cfg, installed_fake_deps):
+        _fake_oss2, _bucket = installed_fake_deps
+        response = MagicMock()
+        response.__enter__.return_value.read.return_value = json.dumps(
+            {
+                "ossRegion": "cn-hangzhou",
+                "ossBucket": "fc-temp-bucket",
+                "objectName": "object.zip",
+                "credentials": {
+                    "accessKeyId": "",
+                    "accessKeySecret": "",
+                    "securityToken": "",
+                },
+            }
+        ).encode()
+
+        with (
+            patch(
+                "agentrun_cli.commands.skill_cmd.build_sdk_config",
+                return_value=mock_cfg,
+            ),
+            patch(
+                "agentrun_cli.commands.skill_cmd.urllib.request.urlopen",
+                return_value=response,
+            ),
+            pytest.raises(click.ClickException, match="accessKeyId"),
+        ):
+            _upload_skill_archive_to_fc_temp_bucket(
+                b"zip-bytes", profile=None, region=None
+            )
+
+    def test_missing_config_raises(self, installed_fake_deps):
+        cfg = MagicMock()
+        cfg.get_access_key_id.return_value = None
+        cfg.get_access_key_secret.return_value = None
+        cfg.get_security_token.return_value = None
+        cfg.get_account_id.return_value = None
+        cfg.get_region_id.return_value = None
+
+        with (
+            patch(
+                "agentrun_cli.commands.skill_cmd.build_sdk_config",
+                return_value=cfg,
+            ),
+            pytest.raises(click.ClickException, match="access_key_id"),
+        ):
+            _upload_skill_archive_to_fc_temp_bucket(
+                b"zip-bytes", profile=None, region=None
+            )
+
+    def test_missing_account_id_value_error_raises_click_exception(
+        self, installed_fake_deps
+    ):
+        cfg = MagicMock()
+        cfg.get_access_key_id.return_value = "ak"
+        cfg.get_access_key_secret.return_value = "sk"
+        cfg.get_security_token.return_value = None
+        cfg.get_account_id.side_effect = ValueError("account id is not set")
+        cfg.get_region_id.return_value = "cn-hangzhou"
+
+        with (
+            patch(
+                "agentrun_cli.commands.skill_cmd.build_sdk_config",
+                return_value=cfg,
+            ),
+            pytest.raises(click.ClickException, match="account_id"),
+        ):
+            _upload_skill_archive_to_fc_temp_bucket(
+                b"zip-bytes", profile=None, region=None
+            )
 
 
 # ---------------------------------------------------------------------------
@@ -269,10 +517,12 @@ class TestSkillCreateCommand:
         assert result.exit_code != 0
         assert "SKILL.md" in result.output
 
+    @patch("agentrun_cli.commands.skill_cmd._upload_skill_archive_to_fc_temp_bucket")
     @patch("agentrun_cli.commands.skill_cmd.get_agentrun_client")
-    def test_create_success(self, mock_client_fn):
+    def test_create_success(self, mock_client_fn, mock_upload):
         client = MagicMock()
         mock_client_fn.return_value = (client, {}, MagicMock())
+        mock_upload.return_value = _CodePackageLocation("bucket", "149/object.zip")
 
         data = SimpleNamespace(
             tool_id="t-new",
@@ -298,11 +548,21 @@ class TestSkillCreateCommand:
 
         assert result.exit_code == 0
         client.create_tool_with_options.assert_called_once()
+        request = client.create_tool_with_options.call_args.args[0]
+        body = request.body
+        assert body.create_method == "CODE_PACKAGE"
+        assert body.artifact_type == "Code"
+        assert body.code_configuration.oss_bucket_name == "bucket"
+        assert body.code_configuration.oss_object_name == "149/object.zip"
+        assert body.code_configuration.zip_file is None
+        mock_upload.assert_called_once()
 
+    @patch("agentrun_cli.commands.skill_cmd._upload_skill_archive_to_fc_temp_bucket")
     @patch("agentrun_cli.commands.skill_cmd.get_agentrun_client")
-    def test_create_with_description_and_credential(self, mock_client_fn):
+    def test_create_with_description_and_credential(self, mock_client_fn, mock_upload):
         client = MagicMock()
         mock_client_fn.return_value = (client, {}, MagicMock())
+        mock_upload.return_value = _CodePackageLocation("bucket", "149/object.zip")
 
         data = SimpleNamespace(
             tool_id="t-new",
@@ -379,10 +639,12 @@ class TestSkillCreateCommand:
 
         assert result.exit_code == 0
 
+    @patch("agentrun_cli.commands.skill_cmd._upload_skill_archive_to_fc_temp_bucket")
     @patch("agentrun_cli.commands.skill_cmd.get_agentrun_client")
-    def test_create_null_data_response(self, mock_client_fn):
+    def test_create_null_data_response(self, mock_client_fn, mock_upload):
         client = MagicMock()
         mock_client_fn.return_value = (client, {}, MagicMock())
+        mock_upload.return_value = _CodePackageLocation("bucket", "149/object.zip")
         client.create_tool_with_options.return_value = SimpleNamespace(
             body=SimpleNamespace(data=None)
         )

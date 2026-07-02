@@ -7,6 +7,7 @@ from unittest.mock import MagicMock, patch
 
 from click.testing import CliRunner
 
+from agentrun_cli.commands.skill_cmd import _CodePackageLocation
 from agentrun_cli.main import cli
 
 # ---------------------------------------------------------------------------
@@ -22,6 +23,13 @@ def _mock_agentrun_models():
     mod.ListToolsRequest = MagicMock(side_effect=lambda **kw: SimpleNamespace(**kw))
     mod.CodeConfiguration = MagicMock(side_effect=lambda **kw: SimpleNamespace(**kw))
     return mod
+
+
+def _mock_agentrun_package(models_mod):
+    """Build mock alibabacloud_agentrun20250910 package."""
+    pkg = MagicMock()
+    pkg.models = models_mod
+    return pkg
 
 
 def _make_tool_obj(**overrides):
@@ -89,10 +97,14 @@ class TestSkillCreate:
 
         with (
             _patch_inner_client(client),
+            patch(
+                "agentrun_cli.commands.skill_cmd._upload_skill_archive_to_fc_temp_bucket",
+                return_value=_CodePackageLocation("bucket", "149/object.zip"),
+            ) as mock_upload,
             patch.dict(
                 "sys.modules",
                 {
-                    "alibabacloud_agentrun20250910": MagicMock(),
+                    "alibabacloud_agentrun20250910": _mock_agentrun_package(mock_mod),
                     "alibabacloud_agentrun20250910.models": mock_mod,
                 },
             ),
@@ -118,6 +130,12 @@ class TestSkillCreate:
         assert result.exit_code == 0, result.output
         out = json.loads(result.output)
         assert out["tool_name"] == "new-skill"
+        mock_upload.assert_called_once()
+        body = mock_mod.CreateToolRequest.call_args.kwargs["body"]
+        assert body.create_method == "CODE_PACKAGE"
+        assert body.artifact_type == "Code"
+        assert body.code_configuration.oss_bucket_name == "bucket"
+        assert body.code_configuration.oss_object_name == "149/object.zip"
 
     def test_create_from_file(self):
         mock_mod = _mock_agentrun_models()
@@ -132,7 +150,7 @@ class TestSkillCreate:
             patch.dict(
                 "sys.modules",
                 {
-                    "alibabacloud_agentrun20250910": MagicMock(),
+                    "alibabacloud_agentrun20250910": _mock_agentrun_package(mock_mod),
                     "alibabacloud_agentrun20250910.models": mock_mod,
                 },
             ),
@@ -175,7 +193,7 @@ class TestSkillList:
             patch.dict(
                 "sys.modules",
                 {
-                    "alibabacloud_agentrun20250910": MagicMock(),
+                    "alibabacloud_agentrun20250910": _mock_agentrun_package(mock_mod),
                     "alibabacloud_agentrun20250910.models": mock_mod,
                 },
             ),
@@ -198,7 +216,7 @@ class TestSkillList:
             patch.dict(
                 "sys.modules",
                 {
-                    "alibabacloud_agentrun20250910": MagicMock(),
+                    "alibabacloud_agentrun20250910": _mock_agentrun_package(mock_mod),
                     "alibabacloud_agentrun20250910.models": mock_mod,
                 },
             ),
