@@ -1,6 +1,5 @@
 """Unit tests for agentrun_cli.commands.skill_cmd — helpers and CLI commands."""
 
-import base64
 import io
 import json
 import os
@@ -19,10 +18,10 @@ from agentrun_cli.commands.skill_cmd import (
     _fc_authorization,
     _load_json_option,
     _oss_endpoint_from_region,
+    _reject_inline_code_fields,
     _serialize_tool,
     _temp_bucket_object_name,
     _upload_skill_archive_to_fc_temp_bucket,
-    _zip_directory,
     _zip_skill_directory_bytes,
     skill_group,
 )
@@ -108,34 +107,11 @@ class TestSerializeTool:
 
 
 # ---------------------------------------------------------------------------
-# Helper: _zip_directory
+# Helper: _zip_skill_directory_bytes
 # ---------------------------------------------------------------------------
 
 
 class TestZipDirectory:
-    def test_zips_directory(self, tmp_path):
-        (tmp_path / "a.txt").write_text("hello")
-        sub = tmp_path / "sub"
-        sub.mkdir()
-        (sub / "b.txt").write_text("world")
-
-        b64 = _zip_directory(str(tmp_path))
-        raw = base64.b64decode(b64)
-        buf = io.BytesIO(raw)
-        with zipfile.ZipFile(buf, "r") as zf:
-            names = sorted(zf.namelist())
-            assert "a.txt" in names
-            assert "sub/b.txt" in names
-            assert zf.read("a.txt") == b"hello"
-            assert zf.read("sub/b.txt") == b"world"
-
-    def test_empty_directory(self, tmp_path):
-        b64 = _zip_directory(str(tmp_path))
-        raw = base64.b64decode(b64)
-        buf = io.BytesIO(raw)
-        with zipfile.ZipFile(buf, "r") as zf:
-            assert zf.namelist() == []
-
     def test_skill_zip_adds_placeholder_main(self, tmp_path):
         (tmp_path / "SKILL.md").write_text("# Skill\n")
         raw = _zip_skill_directory_bytes(str(tmp_path))
@@ -150,6 +126,16 @@ class TestZipDirectory:
         raw = _zip_skill_directory_bytes(str(tmp_path))
         with zipfile.ZipFile(io.BytesIO(raw), "r") as zf:
             assert zf.read("main.py") == b"print('custom')\n"
+
+    def test_reject_inline_code_fields(self):
+        payload = {"codeConfiguration": {"zipFile": "abc"}}
+        with pytest.raises(click.UsageError, match="Inline code base64"):
+            _reject_inline_code_fields(payload)
+
+    def test_reject_inline_code_fields_nested_snake_case(self):
+        payload = {"items": [{"code_configuration": {"zip_file": "abc"}}]}
+        with pytest.raises(click.UsageError, match="Inline code base64"):
+            _reject_inline_code_fields(payload)
 
 
 class TestFCTempBucketHelpers:
@@ -659,6 +645,41 @@ class TestSkillCreateCommand:
             )
 
         assert result.exit_code == 0
+
+    @patch("agentrun_cli.commands.skill_cmd.get_agentrun_client")
+    def test_create_from_file_rejects_inline_code_base64(self, mock_client_fn):
+        client = MagicMock()
+        mock_client_fn.return_value = (client, {}, MagicMock())
+
+        runner = CliRunner()
+        with runner.isolated_filesystem():
+            os.makedirs("my-skill")
+            with open("my-skill/SKILL.md", "w") as f:
+                f.write("# Hello\n")
+            with open("config.json", "w") as f:
+                json.dump(
+                    {
+                        "tool_name": "s",
+                        "codeConfiguration": {"zipFile": "abc"},
+                    },
+                    f,
+                )
+            result = runner.invoke(
+                skill_group,
+                [
+                    "create",
+                    "--name",
+                    "s",
+                    "--code-dir",
+                    "my-skill",
+                    "--from-file",
+                    "config.json",
+                ],
+            )
+
+        assert result.exit_code != 0
+        assert "Inline code base64 fields are not supported" in result.output
+        client.create_tool_with_options.assert_not_called()
 
     @patch("agentrun_cli.commands.skill_cmd._upload_skill_archive_to_fc_temp_bucket")
     @patch("agentrun_cli.commands.skill_cmd.get_agentrun_client")
