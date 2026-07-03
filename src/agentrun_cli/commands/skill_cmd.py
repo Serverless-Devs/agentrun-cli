@@ -64,23 +64,6 @@ def _serialize_tool(t) -> dict:
     }
 
 
-def _zip_directory(dir_path: str) -> str:
-    """ZIP a directory and return base64-encoded content."""
-    return base64.b64encode(_zip_directory_bytes(dir_path)).decode("ascii")
-
-
-def _zip_directory_bytes(dir_path: str) -> bytes:
-    """ZIP a directory and return raw bytes."""
-    buf = io.BytesIO()
-    with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
-        for root, _dirs, files in os.walk(dir_path):
-            for fname in files:
-                full_path = os.path.join(root, fname)
-                arcname = os.path.relpath(full_path, dir_path)
-                zf.write(full_path, arcname)
-    return buf.getvalue()
-
-
 def _zip_skill_directory_bytes(dir_path: str) -> bytes:
     """Package a Skill directory and inject a placeholder main.py when missing."""
     buf = io.BytesIO()
@@ -102,6 +85,22 @@ def _zip_skill_directory_bytes(dir_path: str) -> bytes:
                 "    print('skill package placeholder')\n",
             )
     return buf.getvalue()
+
+
+def _reject_inline_code_fields(value: object) -> None:
+    """Reject legacy inline code fields in user-provided payloads."""
+    if isinstance(value, dict):
+        for key, nested in value.items():
+            if key in {"zipFile", "zip_file"}:
+                raise click.UsageError(
+                    "Inline code base64 fields are not supported for Skill "
+                    "creation; use --code-dir so the CLI uploads the package "
+                    "to FC TempBucket OSS."
+                )
+            _reject_inline_code_fields(nested)
+    elif isinstance(value, list):
+        for nested in value:
+            _reject_inline_code_fields(nested)
 
 
 @dataclass(frozen=True)
@@ -308,6 +307,7 @@ def skill_create(ctx, skill_name, code_dir, description, credential_name, from_f
 
     if from_file:
         payload = _load_json_option(from_file)
+        _reject_inline_code_fields(payload)
         payload.setdefault("tool_type", "SKILL")
         inp = models.CreateToolInputV2(**payload)
     else:
