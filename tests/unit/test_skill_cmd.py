@@ -112,20 +112,15 @@ class TestSerializeTool:
 
 
 class TestZipDirectory:
-    def test_skill_zip_adds_placeholder_main(self, tmp_path):
+    def test_skill_zip_includes_directory_files(self, tmp_path):
         (tmp_path / "SKILL.md").write_text("# Skill\n")
+        sub = tmp_path / "sub"
+        sub.mkdir()
+        (sub / "tool.py").write_text("print('tool')\n")
         raw = _zip_skill_directory_bytes(str(tmp_path))
         with zipfile.ZipFile(io.BytesIO(raw), "r") as zf:
-            assert "SKILL.md" in zf.namelist()
-            assert "main.py" in zf.namelist()
-            assert b"skill package placeholder" in zf.read("main.py")
-
-    def test_skill_zip_keeps_existing_main(self, tmp_path):
-        (tmp_path / "SKILL.md").write_text("# Skill\n")
-        (tmp_path / "main.py").write_text("print('custom')\n")
-        raw = _zip_skill_directory_bytes(str(tmp_path))
-        with zipfile.ZipFile(io.BytesIO(raw), "r") as zf:
-            assert zf.read("main.py") == b"print('custom')\n"
+            assert sorted(zf.namelist()) == ["SKILL.md", "sub/tool.py"]
+            assert zf.read("sub/tool.py") == b"print('tool')\n"
 
     def test_reject_inline_code_fields(self):
         payload = {"codeConfiguration": {"zipFile": "abc"}}

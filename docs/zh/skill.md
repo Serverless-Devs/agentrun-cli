@@ -32,7 +32,7 @@
 
 把本地 Skill 目录打包上传到平台。
 
-目录会被打包并上传到 FC 临时 OSS bucket，然后注册为代码包工具（`createMethod=CODE_PACKAGE`、`artifactType=Code`、`language=python3.12`、`command=python main.py`）。若目录缺少 `main.py`，会注入占位入口文件以保证可部署。代码包不接受 `zipFile` / `zip_file` 等 inline base64 字段，`--from-file` 也会拒绝这些字段。
+目录会被打包并上传到 FC 临时 OSS bucket，然后注册为代码包工具（`createMethod=CODE_PACKAGE`、`artifactType=Code`）。代码包不接受 `zipFile` / `zip_file` 等 inline base64 字段，`--from-file` 也会拒绝这些字段。
 
 ```
 ar skill create --name <name> --code-dir <dir> [options]

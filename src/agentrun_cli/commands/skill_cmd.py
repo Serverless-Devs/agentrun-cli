@@ -65,25 +65,14 @@ def _serialize_tool(t) -> dict:
 
 
 def _zip_skill_directory_bytes(dir_path: str) -> bytes:
-    """Package a Skill directory and inject a placeholder main.py when missing."""
+    """Package a Skill directory and return raw ZIP bytes."""
     buf = io.BytesIO()
-    has_main_py = False
     with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
         for root, _dirs, files in os.walk(dir_path):
             for fname in files:
                 full_path = os.path.join(root, fname)
                 arcname = os.path.relpath(full_path, dir_path)
-                if arcname == "main.py":
-                    has_main_py = True
                 zf.write(full_path, arcname)
-        if not has_main_py:
-            zf.writestr(
-                "main.py",
-                "def handler(event, context):\n"
-                "    return {'status': 'ok'}\n\n"
-                "if __name__ == '__main__':\n"
-                "    print('skill package placeholder')\n",
-            )
     return buf.getvalue()
 
 
@@ -329,8 +318,6 @@ def skill_create(ctx, skill_name, code_dir, description, credential_name, from_f
         code_cfg = models.CodeConfiguration(
             oss_bucket_name=location.oss_bucket_name,
             oss_object_name=location.oss_object_name,
-            language="python3.12",
-            command=["python", "main.py"],
         )
 
         inp = models.CreateToolInputV2(

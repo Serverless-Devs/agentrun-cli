@@ -35,10 +35,8 @@ Upload a local skill directory to the platform.
 
 The directory is zipped and uploaded to an FC temporary OSS bucket, then
 registered as a code-package tool (`createMethod=CODE_PACKAGE`,
-`artifactType=Code`, `language=python3.12`, `command=python main.py`). If the
-directory has no `main.py`, a placeholder entrypoint is injected so the package
-is deployable. Inline code base64 fields such as `zipFile` and `zip_file` are
-not accepted, including in `--from-file` payloads.
+`artifactType=Code`). Inline code base64 fields such as `zipFile` and
+`zip_file` are not accepted, including in `--from-file` payloads.
 
 ```
 ar skill create --name <name> --code-dir <dir> [options]
