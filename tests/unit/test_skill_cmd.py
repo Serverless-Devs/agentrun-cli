@@ -3,6 +3,7 @@
 import io
 import json
 import os
+import urllib.error
 import zipfile
 from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
@@ -122,6 +123,8 @@ class TestZipDirectory:
             assert sorted(zf.namelist()) == ["SKILL.md", "sub/tool.py"]
             assert zf.read("sub/tool.py") == b"print('tool')\n"
 
+
+class TestRejectInlineCodeFields:
     def test_reject_inline_code_fields(self):
         payload = {"codeConfiguration": {"zipFile": "abc"}}
         with pytest.raises(click.UsageError, match="Inline code base64"):
@@ -313,6 +316,73 @@ class TestUploadSkillArchiveToFCTempBucket:
                 return_value=response,
             ),
             pytest.raises(click.ClickException, match="accessKeyId"),
+        ):
+            _upload_skill_archive_to_fc_temp_bucket(
+                b"zip-bytes", profile=None, region=None
+            )
+
+    def test_temp_bucket_http_error_raises_click_exception(
+        self, mock_cfg, installed_fake_deps
+    ):
+        with (
+            patch(
+                "agentrun_cli.commands.skill_cmd.build_sdk_config",
+                return_value=mock_cfg,
+            ),
+            patch(
+                "agentrun_cli.commands.skill_cmd.urllib.request.urlopen",
+                side_effect=urllib.error.HTTPError(
+                    url="https://149.cn-hangzhou.fc.aliyuncs.com",
+                    code=403,
+                    msg="Forbidden",
+                    hdrs=None,
+                    fp=io.BytesIO(b"denied"),
+                ),
+            ),
+            pytest.raises(click.ClickException, match="Failed to get FC"),
+        ):
+            _upload_skill_archive_to_fc_temp_bucket(
+                b"zip-bytes", profile=None, region=None
+            )
+
+    def test_temp_bucket_url_error_raises_click_exception(
+        self, mock_cfg, installed_fake_deps
+    ):
+        with (
+            patch(
+                "agentrun_cli.commands.skill_cmd.build_sdk_config",
+                return_value=mock_cfg,
+            ),
+            patch(
+                "agentrun_cli.commands.skill_cmd.urllib.request.urlopen",
+                side_effect=urllib.error.URLError("network down"),
+            ),
+            pytest.raises(click.ClickException, match="network down"),
+        ):
+            _upload_skill_archive_to_fc_temp_bucket(
+                b"zip-bytes", profile=None, region=None
+            )
+
+    def test_oss_upload_error_raises_click_exception(
+        self, mock_cfg, installed_fake_deps
+    ):
+        _fake_oss2, bucket = installed_fake_deps
+        bucket.put_object.side_effect = RuntimeError("upload failed")
+        response = MagicMock()
+        response.__enter__.return_value.read.return_value = json.dumps(
+            _fc_temp_bucket_payload()
+        ).encode()
+
+        with (
+            patch(
+                "agentrun_cli.commands.skill_cmd.build_sdk_config",
+                return_value=mock_cfg,
+            ),
+            patch(
+                "agentrun_cli.commands.skill_cmd.urllib.request.urlopen",
+                return_value=response,
+            ),
+            pytest.raises(click.ClickException, match="Failed to upload"),
         ):
             _upload_skill_archive_to_fc_temp_bucket(
                 b"zip-bytes", profile=None, region=None
@@ -601,8 +671,9 @@ class TestSkillCreateCommand:
 
         assert result.exit_code == 0
 
+    @patch("agentrun_cli.commands.skill_cmd._upload_skill_archive_to_fc_temp_bucket")
     @patch("agentrun_cli.commands.skill_cmd.get_agentrun_client")
-    def test_create_from_file(self, mock_client_fn):
+    def test_create_from_file(self, mock_client_fn, mock_upload):
         client = MagicMock()
         mock_client_fn.return_value = (client, {}, MagicMock())
 
@@ -640,6 +711,11 @@ class TestSkillCreateCommand:
             )
 
         assert result.exit_code == 0
+        mock_upload.assert_not_called()
+        request = client.create_tool_with_options.call_args.args[0]
+        body = request.body
+        assert body.create_method == "CODE_PACKAGE"
+        assert body.artifact_type == "Code"
 
     @patch("agentrun_cli.commands.skill_cmd.get_agentrun_client")
     def test_create_from_file_rejects_inline_code_base64(self, mock_client_fn):
