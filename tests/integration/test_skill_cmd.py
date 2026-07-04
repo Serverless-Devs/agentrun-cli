@@ -176,6 +176,9 @@ class TestSkillCreate:
                     ],
                 )
         assert result.exit_code == 0, result.output
+        body = mock_mod.CreateToolRequest.call_args.kwargs["body"]
+        assert body.create_method == "CODE_PACKAGE"
+        assert body.artifact_type == "Code"
 
 
 class TestSkillList:

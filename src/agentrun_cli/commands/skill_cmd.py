@@ -138,7 +138,12 @@ def _upload_skill_archive_to_fc_temp_bucket(
 
     auth = oss2.StsAuth(temp_ak, temp_sk, temp_token)
     bucket = oss2.Bucket(auth, _oss_endpoint_from_region(oss_region), oss_bucket)
-    bucket.put_object(object_name, zip_data)
+    try:
+        bucket.put_object(object_name, zip_data)
+    except Exception as exc:
+        raise click.ClickException(
+            f"Failed to upload skill archive to FC TempBucket OSS: {exc}"
+        ) from exc
     return _CodePackageLocation(oss_bucket, object_name)
 
 
@@ -298,6 +303,8 @@ def skill_create(ctx, skill_name, code_dir, description, credential_name, from_f
         payload = _load_json_option(from_file)
         _reject_inline_code_fields(payload)
         payload.setdefault("tool_type", "SKILL")
+        payload.setdefault("create_method", "CODE_PACKAGE")
+        payload.setdefault("artifact_type", "Code")
         inp = models.CreateToolInputV2(**payload)
     else:
         # Validate code-dir
