@@ -13,9 +13,12 @@ Usage::
 import logging
 import os
 
+import certifi
 import click
 
 os.environ.setdefault("DISABLE_BREAKING_CHANGES_WARNING", "1")
+if "SSL_CERT_FILE" not in os.environ:
+    os.environ["SSL_CERT_FILE"] = certifi.where()
 
 from agentrun_cli import __version__
 from agentrun_cli.commands.config_cmd import config_group
